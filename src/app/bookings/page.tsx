@@ -21,6 +21,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useBookings, type BookingRecord } from "@/context/BookingContext";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { BookingTimer } from "@/components/booking/BookingTimer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Dialog } from "@/components/ui/Dialog";
 import { cn } from "@/lib/utils";
@@ -39,7 +40,7 @@ export default function BookingsDashboardPage() {
   const filteredBookings = React.useMemo(() => {
     return bookings.filter((b) => {
       if (activeTab === "upcoming") {
-        return b.status === "approved" || b.status === "checked_in";
+        return b.status === "approved" || b.status === "checked_in" || b.status === "overdue";
       }
       if (activeTab === "pending") {
         return b.status === "requested";
@@ -101,7 +102,7 @@ export default function BookingsDashboardPage() {
             {
               id: "upcoming",
               label: "Upcoming",
-              count: bookings.filter((b) => b.status === "approved" || b.status === "checked_in").length,
+              count: bookings.filter((b) => b.status === "approved" || b.status === "checked_in" || b.status === "overdue").length,
             },
             {
               id: "pending",
@@ -186,6 +187,9 @@ export default function BookingsDashboardPage() {
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge status={b.status} />
+                      {(b.status === "checked_in" || b.status === "overdue") && (
+                        <BookingTimer booking={b} variant="compact" />
+                      )}
                       <span className="text-[11px] text-ink-muted font-mono">
                         {b.id}
                       </span>
@@ -231,9 +235,17 @@ export default function BookingsDashboardPage() {
                 {/* Right: Actions */}
                 <div className="flex items-center gap-2 w-full md:w-auto justify-end border-t md:border-t-0 pt-3 md:pt-0 border-line/60">
                   {b.status === "approved" && (
-                    <Link href={`/bookings/${b.id}`}>
+                    <Link href={`/bookings/${b.id}/check-in`}>
                       <Button size="sm" variant="accent" leftIcon={<Camera className="w-4 h-4" />}>
                         Photo Check-in
+                      </Button>
+                    </Link>
+                  )}
+
+                  {(b.status === "checked_in" || b.status === "overdue") && (
+                    <Link href={`/bookings/${b.id}/return`}>
+                      <Button size="sm" variant="accent" leftIcon={<RotateCcw className="w-4 h-4" />}>
+                        Return & Check Out
                       </Button>
                     </Link>
                   )}

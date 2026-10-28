@@ -23,9 +23,13 @@ import {
   Info,
   Scale,
   Zap,
+  AlertOctagon,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth } from "@/context/AuthContext";
+import { useAudit } from "@/context/AuditContext";
+import { AuditTimeline } from "@/components/audit/AuditTimeline";
+import { ReportIncidentDialog } from "@/components/incident/ReportIncidentDialog";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
@@ -43,11 +47,17 @@ export default function ResourceDetailPage() {
   const router = useRouter();
   const slug = params?.slug as string;
   const { user, credentials } = useAuth();
+  const { getAuditByResource } = useAudit();
 
   // Find resource by slug
   const resource = React.useMemo(() => {
     return CAMPUS_RESOURCES.find((r) => r.slug === slug);
   }, [slug]);
+
+  // Tab & Incident state
+  const [activeResourceTab, setActiveResourceTab] = React.useState<"overview" | "history">("overview");
+  const [isReportIncidentOpen, setIsReportIncidentOpen] = React.useState(false);
+  const resourceAuditRecords = resource ? getAuditByResource(resource.id) : [];
 
   // Gallery state
   const [activePhotoIdx, setActivePhotoIdx] = React.useState(0);
@@ -319,10 +329,67 @@ export default function ResourceDetailPage() {
           </div>
         </div>
 
-        {/* ======================================================== */}
-        {/* MAIN BODY: 2-COLUMN EDITORIAL DECK                       */}
-        {/* ======================================================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Navigation Tab Strip: Catalog Overview vs Audited Maintenance History */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-1">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveResourceTab("overview")}
+              className={cn(
+                "px-4 py-2 text-small font-medium border-b-2 -mb-1.5 transition-colors cursor-pointer",
+                activeResourceTab === "overview"
+                  ? "border-terracotta text-terracotta font-semibold"
+                  : "border-transparent text-ink-muted hover:text-ink hover:border-line"
+              )}
+            >
+              Catalog Overview & Specifications
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveResourceTab("history")}
+              className={cn(
+                "px-4 py-2 text-small font-medium border-b-2 -mb-1.5 transition-colors cursor-pointer flex items-center gap-2",
+                activeResourceTab === "history"
+                  ? "border-terracotta text-terracotta font-semibold"
+                  : "border-transparent text-ink-muted hover:text-ink hover:border-line"
+              )}
+            >
+              <span>Maintenance & Audit History</span>
+              <span
+                className={cn(
+                  "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
+                  activeResourceTab === "history"
+                    ? "bg-terracotta/15 text-terracotta font-bold"
+                    : "bg-bone text-ink-muted"
+                )}
+              >
+                {resourceAuditRecords.length}
+              </span>
+            </button>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={<AlertOctagon className="w-3.5 h-3.5 text-danger" />}
+            onClick={() => setIsReportIncidentOpen(true)}
+            className="text-xs border border-danger/30 text-danger hover:bg-danger/10 min-h-[36px]"
+          >
+            Report Issue / Incident
+          </Button>
+        </div>
+
+        {activeResourceTab === "history" ? (
+          <AuditTimeline
+            records={resourceAuditRecords}
+            entityTitle={`${resource.title} — Campus Registry`}
+            allowExport
+          />
+        ) : (
+          /* ======================================================== */
+          /* MAIN BODY: 2-COLUMN EDITORIAL DECK                       */
+          /* ======================================================== */
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column: Narrative, Rules, Schedule (8 cols) */}
           <div className="lg:col-span-8 space-y-10">
             {/* Description Narrative */}
@@ -633,6 +700,7 @@ export default function ResourceDetailPage() {
             </div>
           </div>
         </div>
+      )}
       </div>
 
       {/* ======================================================== */}
@@ -720,6 +788,17 @@ export default function ResourceDetailPage() {
           </div>
         </div>
       </Dialog>
+
+      {/* Global Incident Report Dialog for this Resource */}
+      <ReportIncidentDialog
+        isOpen={isReportIncidentOpen}
+        onClose={() => setIsReportIncidentOpen(false)}
+        resourceId={resource.id}
+        resourceTitle={resource.title}
+        resourceSlug={resource.slug}
+        resourceLocation={resource.locationText}
+        resourcePhoto={resource.photos[0]}
+      />
     </AppShell>
   );
 }

@@ -3,7 +3,11 @@ import { Instrument_Serif, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastContainer } from "@/components/ui/Toast";
 import { RoleProvider } from "@/context/RoleContext";
+import { AuditProvider } from "@/context/AuditContext";
+import { NotificationProvider } from "@/context/NotificationContext";
+import { IncidentProvider } from "@/context/IncidentContext";
 import { BookingProvider } from "@/context/BookingContext";
+import { OwnerResourceProvider } from "@/context/OwnerResourceContext";
 
 const instrumentSerif = Instrument_Serif({
   weight: "400",
@@ -46,10 +50,18 @@ export default function RootLayout({
         className="bg-bone text-ink antialiased min-h-screen selection:bg-terracotta selection:text-surface"
       >
         <RoleProvider>
-          <BookingProvider>
-            {children}
-            <ToastContainer />
-          </BookingProvider>
+          <AuditProvider>
+            <NotificationProvider>
+              <IncidentProvider>
+                <BookingProvider>
+                  <OwnerResourceProvider>
+                    {children}
+                    <ToastContainer />
+                  </OwnerResourceProvider>
+                </BookingProvider>
+              </IncidentProvider>
+            </NotificationProvider>
+          </AuditProvider>
         </RoleProvider>
       </body>
     </html>

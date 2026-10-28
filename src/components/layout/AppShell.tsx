@@ -17,8 +17,12 @@ import {
   Building2,
   Sparkles,
   Smartphone,
+  AlertOctagon,
+  ArrowRight,
+  LayoutDashboard,
 } from "lucide-react";
 import { useRole, type UserRole } from "@/context/RoleContext";
+import { useNotifications } from "@/context/NotificationContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { VerificationBanner } from "@/components/common/VerificationBanner";
@@ -31,36 +35,77 @@ export interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const { role, setRole, roleTitle } = useRole();
+  const { notifications, unreadCount, markAsRead } = useNotifications();
   const [roleMenuOpen, setRoleMenuOpen] = React.useState(false);
+  const [notifMenuOpen, setNotifMenuOpen] = React.useState(false);
 
   // Define role-specific navigation arrays
   const userNavItems = [
     { href: "/explore", label: "Discover", icon: Compass },
-    { href: "/bookings", label: "Bookings", icon: CalendarClock, badge: "2" },
-    { href: "/alerts", label: "Alerts", icon: Bell },
+    { href: "/bookings", label: "Bookings", icon: CalendarClock },
+    {
+      href: "/alerts",
+      label: "Alerts",
+      icon: Bell,
+      badge: unreadCount > 0 ? String(unreadCount) : undefined,
+    },
+    { href: "/incidents", label: "Incidents", icon: AlertOctagon },
     { href: "/profile", label: "Profile", icon: User },
   ];
 
   const ownerNavItems = [
-    { href: "/owner/queue", label: "Queue", icon: Inbox, badge: "3" },
+    { href: "/owner/resources", label: "My Listings", icon: Layers },
+    { href: "/queue", label: "Queue", icon: Inbox, badge: "3" },
+    { href: "/incidents", label: "Incidents", icon: AlertOctagon },
     { href: "/admin/credentials", label: "Credentials", icon: ShieldCheck, badge: "2" },
-    { href: "/listings", label: "Resources", icon: Layers },
+    { href: "/admin/audit", label: "Audit Ledger", icon: Scroll },
+    {
+      href: "/alerts",
+      label: "Alerts",
+      icon: Bell,
+      badge: unreadCount > 0 ? String(unreadCount) : undefined,
+    },
     { href: "/profile", label: "Profile", icon: User },
   ];
 
-  const managerAdminNavItems = [
-    { href: "/owner/queue", label: "Queue", icon: Inbox, badge: "3" },
+  const managerNavItems = [
+    { href: "/owner/resources", label: "Listings", icon: Layers },
+    { href: "/queue", label: "Queue", icon: Inbox, badge: "3" },
+    { href: "/incidents", label: "Incidents", icon: AlertOctagon },
     { href: "/admin/credentials", label: "Credentials", icon: ShieldCheck, badge: "2" },
-    { href: "/listings", label: "Resources", icon: Layers },
-    { href: "/audit", label: "Audit Log", icon: Scroll },
+    { href: "/admin/audit", label: "Audit Ledger", icon: Scroll },
+    {
+      href: "/alerts",
+      label: "Alerts",
+      icon: Bell,
+      badge: unreadCount > 0 ? String(unreadCount) : undefined,
+    },
+    { href: "/profile", label: "Profile", icon: User },
+  ];
+
+  const adminNavItems = [
+    { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/owner/resources", label: "All Listings", icon: Layers },
+    { href: "/queue", label: "Queue", icon: Inbox, badge: "3" },
+    { href: "/incidents", label: "Incidents", icon: AlertOctagon },
+    { href: "/admin/credentials", label: "Credentials", icon: ShieldCheck, badge: "2" },
+    { href: "/admin/audit", label: "Audit Ledger", icon: Scroll },
+    {
+      href: "/alerts",
+      label: "Alerts",
+      icon: Bell,
+      badge: unreadCount > 0 ? String(unreadCount) : undefined,
+    },
     { href: "/profile", label: "Profile", icon: User },
   ];
 
   const activeNavItems =
-    role === "owner"
+    role === "admin"
+      ? adminNavItems
+      : role === "owner"
       ? ownerNavItems
-      : role === "manager" || role === "admin"
-      ? managerAdminNavItems
+      : role === "manager"
+      ? managerNavItems
       : userNavItems;
 
   const roleOptions: { role: UserRole; title: string; desc: string }[] = [
@@ -86,6 +131,8 @@ export function AppShell({ children }: AppShellProps) {
     },
   ];
 
+  const recentAlerts = notifications.slice(0, 4);
+
   return (
     <div className="min-h-screen bg-bone text-ink flex flex-col lg:flex-row">
       {/* ======================================================== */}
@@ -108,6 +155,65 @@ export function AppShell({ children }: AppShellProps) {
                 </span>
               </div>
             </Link>
+
+            {/* Notification Bell with Badge */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setNotifMenuOpen(!notifMenuOpen)}
+                className="p-2 rounded-full hover:bg-bone text-ink-muted hover:text-ink transition-colors relative min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer"
+                aria-label="Toggle notifications dropdown"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-terracotta ring-2 ring-surface animate-pulse" />
+                )}
+              </button>
+
+              {/* Quick Alerts Dropdown */}
+              {notifMenuOpen && (
+                <div className="absolute left-0 mt-2 w-80 z-50 bg-surface border border-line rounded-editorial shadow-editorial-raised p-3 space-y-2">
+                  <div className="flex items-center justify-between border-b border-line/60 pb-2">
+                    <span className="text-mono-label uppercase text-ink-muted font-bold">
+                      Recent Alerts ({unreadCount} new)
+                    </span>
+                    <Link
+                      href="/alerts"
+                      onClick={() => setNotifMenuOpen(false)}
+                      className="text-[11px] text-terracotta hover:underline font-semibold"
+                    >
+                      View All
+                    </Link>
+                  </div>
+
+                  <div className="space-y-2">
+                    {recentAlerts.map((a) => (
+                      <Link
+                        key={a.id}
+                        href={a.link}
+                        onClick={() => {
+                          markAsRead(a.id);
+                          setNotifMenuOpen(false);
+                        }}
+                        className={cn(
+                          "block p-2 rounded-md border text-xs transition-colors",
+                          !a.read
+                            ? "bg-[#FCF2F1]/30 border-terracotta/30 text-ink"
+                            : "bg-surface border-line text-ink-muted hover:bg-bone"
+                        )}
+                      >
+                        <strong className="block text-ink text-[11px] truncate">
+                          {a.title}
+                        </strong>
+                        <span className="text-[10px] text-ink-muted line-clamp-1">
+                          {a.body}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Role Selector Pill */}
@@ -210,16 +316,28 @@ export function AppShell({ children }: AppShellProps) {
               Governance & Dev
             </div>
             <Link
-              href="/audit"
+              href="/admin/audit"
               className={cn(
                 "flex items-center gap-3 px-3.5 py-2 rounded-editorial text-small font-medium transition-colors min-h-[44px]",
-                pathname === "/audit"
+                pathname === "/admin/audit" || pathname === "/audit"
                   ? "bg-bone text-ink font-semibold"
                   : "text-ink-muted hover:text-ink hover:bg-bone/50"
               )}
             >
               <Scroll className="w-4 h-4 text-ink-muted" />
               <span>Audit Ledger</span>
+            </Link>
+            <Link
+              href="/incidents"
+              className={cn(
+                "flex items-center gap-3 px-3.5 py-2 rounded-editorial text-small font-medium transition-colors min-h-[44px]",
+                pathname === "/incidents"
+                  ? "bg-bone text-ink font-semibold"
+                  : "text-ink-muted hover:text-ink hover:bg-bone/50"
+              )}
+            >
+              <AlertOctagon className="w-4 h-4 text-danger" />
+              <span>Incidents & Delays</span>
             </Link>
             <Link
               href="/design"
@@ -251,8 +369,8 @@ export function AppShell({ children }: AppShellProps) {
         {/* User Card in Sidebar Footer */}
         <div className="pt-4 border-t border-line/70 flex items-center justify-between">
           <Avatar
-            name="Dr. Aris Vance"
-            subtitle="Physics & Fabrication"
+            name="Aanya Patel"
+            subtitle="Mechanical Engineering"
             verified
             size="md"
           />
@@ -279,8 +397,21 @@ export function AppShell({ children }: AppShellProps) {
           </span>
         </Link>
 
-        {/* Mobile Role Switcher Pill */}
+        {/* Mobile Header Actions */}
         <div className="flex items-center gap-2">
+          {/* Realtime Alert Bell */}
+          <Link
+            href="/alerts"
+            className="p-2 text-ink-muted hover:text-ink relative min-h-[44px] min-w-[44px] flex items-center justify-center"
+            title="Notifications"
+          >
+            <Bell className="w-5 h-5 text-ink-muted" />
+            {unreadCount > 0 && (
+              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-terracotta animate-ping" />
+            )}
+          </Link>
+
+          {/* Role Pill */}
           <button
             type="button"
             onClick={() => setRole(role === "student" ? "owner" : "student")}
@@ -297,15 +428,6 @@ export function AppShell({ children }: AppShellProps) {
             title="Open Phone Emulator"
           >
             <Smartphone className="w-5 h-5 text-terracotta" />
-          </Link>
-
-          <Link
-            href="/design"
-            aria-label="Design System"
-            className="p-2 text-ink-muted hover:text-ink min-h-[44px] min-w-[44px] flex items-center justify-center"
-            title="Design System"
-          >
-            <Palette className="w-5 h-5 text-ink-muted" />
           </Link>
         </div>
       </header>
@@ -325,8 +447,8 @@ export function AppShell({ children }: AppShellProps) {
         aria-label="Mobile Bottom Navigation"
         className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-md border-t border-line px-2 py-1 shadow-editorial-sheet"
       >
-        <div className="grid grid-cols-4 max-w-md mx-auto">
-          {activeNavItems.map((item) => {
+        <div className="grid grid-cols-5 max-w-md mx-auto">
+          {activeNavItems.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
             return (
@@ -346,7 +468,7 @@ export function AppShell({ children }: AppShellProps) {
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] mt-1 tracking-tight leading-none">
+                <span className="text-[10px] mt-1 tracking-tight leading-none truncate max-w-[55px]">
                   {item.label}
                 </span>
                 {isActive && (

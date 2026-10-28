@@ -18,9 +18,11 @@ import {
   ExternalLink,
   Search,
   Filter,
+  Sparkles,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth, type UserCredentialItem } from "@/context/AuthContext";
+import { useAudit } from "@/context/AuditContext";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/Card";
@@ -33,11 +35,86 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export default function CredentialsReviewPage() {
-  const { reviewQueue, reviewCredential, role, roleTitle } = useAuth();
+  const { reviewQueue, reviewCredential, role, roleTitle, user } = useAuth();
+  const { logAudit } = useAudit();
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<"all" | "pending" | "verified" | "rejected">("pending");
   const [selectedCredential, setSelectedCredential] = React.useState<UserCredentialItem | null>(null);
+
+  // AI Pre-Check State
+  const [aiPrecheck, setAiPrecheck] = React.useState<{
+    extractedName: string;
+    extractedCourse: string;
+    issueDate: string;
+    expiryDate: string;
+    mismatchFlags: string[];
+    isNameMatching: boolean;
+    isExpired: boolean;
+    confidence: string;
+    reviewerGuidance: string;
+    isAiGenerated: boolean;
+    modelUsed: string;
+  } | null>(null);
+  const [isLoadingPrecheck, setIsLoadingPrecheck] = React.useState(false);
+
+  // Fetch precheck whenever credential is opened
+  React.useEffect(() => {
+    if (!selectedCredential) {
+      setAiPrecheck(null);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingPrecheck(true);
+
+    fetch("/api/ai/credential-precheck", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileName: selectedCredential.documentPath || "certificate.pdf",
+        requirementLabel: selectedCredential.requirementLabel,
+        userProfileName: selectedCredential.userName,
+        userEmail: "aanya@eastbrook.edu",
+        userAffiliation: selectedCredential.userAffiliation,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted) {
+          setAiPrecheck(data);
+
+          // Log AI Pre-check event in audit trail
+          logAudit({
+            entityType: "credential",
+            entityId: selectedCredential.id,
+            entityTitle: selectedCredential.requirementLabel,
+            action: "AI_CREDENTIAL_PRECHECK_EVALUATED",
+            actionLabel: "AI Credential Pre-Check Evaluated",
+            actorId: user?.id || "usr-reviewer",
+            actorName: user?.fullName || "Custodian Reviewer",
+            actorRole: (user?.role as any) || "owner",
+            reason: `Evaluated training certificate for ${selectedCredential.userName} via ${data.modelUsed}.`,
+            before: undefined,
+            after: {
+              extractedName: data.extractedName,
+              mismatchFlagsCount: data.mismatchFlags?.length || 0,
+              isNameMatching: data.isNameMatching,
+            },
+          });
+        }
+      })
+      .catch(() => {
+        // Fallback
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingPrecheck(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCredential, user, logAudit]);
 
   // Rejection Dialog State
   const [isRejectDialogOpen, setIsRejectDialogOpen] = React.useState(false);
@@ -316,6 +393,79 @@ export default function CredentialsReviewPage() {
                   <p>• Optical radiation training completed on Oct 08, 2026.</p>
                   <p>• Practical exam score: 100%.</p>
                   <p>• Signed by Eastbrook Safety Officer Dr. S. Vance.</p>
+                </div>
+              </div>
+
+              {/* AI Credential Pre-Check Card */}
+              <div className="p-4 bg-bone/70 border border-line rounded-editorial space-y-3 text-xs shadow-xs">
+                <div className="flex items-center justify-between border-b border-line pb-2">
+                  <div className="flex items-center gap-1.5 font-bold text-ink">
+                    <Sparkles className="w-4 h-4 text-terracotta" />
+                    <span>AI Pre-Check Hints (OCR & Mismatch)</span>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-terracotta/10 text-terracotta font-semibold">
+                    Advisory Only
+                  </span>
+                </div>
+
+                {isLoadingPrecheck ? (
+                  <div className="space-y-1.5 py-2">
+                    <div className="h-4 bg-bone rounded animate-pulse" />
+                    <div className="h-4 bg-bone rounded animate-pulse w-3/4" />
+                  </div>
+                ) : aiPrecheck ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <span className="text-ink-muted block text-[10px] uppercase">Extracted Recipient</span>
+                        <strong className="text-ink">{aiPrecheck.extractedName}</strong>
+                      </div>
+                      <div>
+                        <span className="text-ink-muted block text-[10px] uppercase">Verified Program</span>
+                        <strong className="text-ink">{aiPrecheck.extractedCourse}</strong>
+                      </div>
+                      <div>
+                        <span className="text-ink-muted block text-[10px] uppercase">Issue Date</span>
+                        <span className="font-mono text-ink">{aiPrecheck.issueDate}</span>
+                      </div>
+                      <div>
+                        <span className="text-ink-muted block text-[10px] uppercase">Expiry Date</span>
+                        <span className="font-mono text-ink">{aiPrecheck.expiryDate}</span>
+                      </div>
+                    </div>
+
+                    {/* Mismatch & Consistency Indicators */}
+                    <div className="p-2.5 bg-surface rounded border border-line space-y-1">
+                      <div className="flex items-center gap-1.5 font-semibold text-[11px] text-ink">
+                        {aiPrecheck.isNameMatching ? (
+                          <ShieldCheck className="w-3.5 h-3.5 text-success" />
+                        ) : (
+                          <AlertCircle className="w-3.5 h-3.5 text-warning" />
+                        )}
+                        <span>
+                          {aiPrecheck.isNameMatching
+                            ? "Recipient matches applicant profile"
+                            : "Potential name discrepancy flagged"}
+                        </span>
+                      </div>
+
+                      {aiPrecheck.mismatchFlags.map((flag, idx) => (
+                        <p key={idx} className="text-[10px] text-ink-muted pl-5 leading-tight">
+                          • {flag}
+                        </p>
+                      ))}
+                    </div>
+
+                    <p className="text-[10px] text-ink-muted leading-tight">
+                      <strong>Guidance: </strong>{aiPrecheck.reviewerGuidance}
+                    </p>
+                  </div>
+                ) : null}
+
+                {/* Governance Mandatory Notice */}
+                <div className="pt-2 border-t border-line/60 text-[10px] text-ink-muted">
+                  <strong className="text-ink">Reviewer Governance: </strong>
+                  AI never makes final decisions. Hints are synthesized to assist verification; the human custodian must approve or reject.
                 </div>
               </div>
 

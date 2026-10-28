@@ -22,10 +22,15 @@ import {
   Calendar,
   Building2,
   AlertCircle,
+  RotateCcw,
+  Star,
+  FileWarning,
+  Eye,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth } from "@/context/AuthContext";
 import { useBookings, type BookingRecord } from "@/context/BookingContext";
+import { BookingTimer } from "@/components/booking/BookingTimer";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Dialog } from "@/components/ui/Dialog";
@@ -35,11 +40,11 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type QueueFilter = "all" | "pending" | "approved" | "waitlisted" | "rejected";
+type QueueFilter = "all" | "pending" | "approved" | "waitlisted" | "returns" | "rejected";
 
 export default function OwnerQueuePage() {
   const { user, role, roleTitle } = useAuth();
-  const { bookings, decideBooking, delegateBooking } = useBookings();
+  const { bookings, decideBooking, delegateBooking, completeBooking, disputeBooking } = useBookings();
 
   const [activeFilter, setActiveFilter] = React.useState<QueueFilter>("pending");
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -51,6 +56,18 @@ export default function OwnerQueuePage() {
   const [decisionReasonCode, setDecisionReasonCode] = React.useState<string>("verified_credentials");
   const [decisionExplanation, setDecisionExplanation] = React.useState<string>("");
   const [decisionError, setDecisionError] = React.useState<string | null>(null);
+
+  // Return Inspection Completion Dialog State
+  const [isCompleteOpen, setIsCompleteOpen] = React.useState(false);
+  const [verificationNotes, setVerificationNotes] = React.useState("Physical condition verified against baseline. Components holstered, optics clean.");
+  const [ownerFeedbackRating, setOwnerFeedbackRating] = React.useState(5);
+  const [ownerFeedbackNote, setOwnerFeedbackNote] = React.useState("Work area left clean and equipment properly shut down. Trust score credited.");
+  const [isCompleting, setIsCompleting] = React.useState(false);
+
+  // Return Dispute Dialog State
+  const [isDisputeOpen, setIsDisputeOpen] = React.useState(false);
+  const [disputeReason, setDisputeReason] = React.useState("");
+  const [isDisputing, setIsDisputing] = React.useState(false);
 
   // Delegation Dialog State
   const [isDelegateOpen, setIsDelegateOpen] = React.useState(false);
@@ -72,6 +89,8 @@ export default function OwnerQueuePage() {
           ? true
           : activeFilter === "pending"
           ? b.status === "requested"
+          : activeFilter === "returns"
+          ? b.status === "returned" || b.status === "completed"
           : b.status === activeFilter;
 
       return matchesSearch && matchesStatus;
@@ -127,64 +146,113 @@ export default function OwnerQueuePage() {
 
     if (success) {
       setIsDecisionOpen(false);
-      // Update selected booking preview
-      setSelectedBooking((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: decisionType as any,
-              decisionExplanation,
-              decidedByName: user?.fullName || "Dr. Kavitha Rao",
-            }
-          : null
-      );
+      setSelectedBooking(null);
     }
   };
 
+  // Confirm Complete Return with Feedback
+  const handleConfirmComplete = async () => {
+    if (!selectedBooking) return;
+    setIsCompleting(true);
+
+    const success = await completeBooking(
+      selectedBooking.id,
+      verificationNotes,
+      {
+        rating: ownerFeedbackRating,
+        note: ownerFeedbackNote,
+      }
+    );
+
+    setIsCompleting(false);
+    if (success) {
+      setIsCompleteOpen(false);
+      setSelectedBooking(null);
+    }
+  };
+
+  // Confirm Dispute Return
+  const handleConfirmDispute = async () => {
+    if (!selectedBooking) return;
+    if (!disputeReason.trim()) {
+      toast.error("Please explain the reason for raising this dispute.");
+      return;
+    }
+
+    setIsDisputing(true);
+    const success = await disputeBooking(
+      selectedBooking.id,
+      disputeReason,
+      {
+        id: `inc-disp-${Date.now()}`,
+        bookingId: selectedBooking.id,
+        resourceId: selectedBooking.resourceId,
+        reportedBy: user?.id || "22222222-2222-2222-2222-222222222222",
+        reportedByName: "Dr. Kavitha Rao (Lab Director)",
+        type: "damage",
+        severity: "medium",
+        description: disputeReason,
+        status: "under_review",
+        createdAt: new Date().toISOString(),
+      }
+    );
+
+    setIsDisputing(false);
+    if (success) {
+      setIsDisputeOpen(false);
+      setSelectedBooking(null);
+    }
+  };
+
+  // Confirm Delegation
   const handleConfirmDelegation = async () => {
     if (!selectedBooking) return;
-    await delegateBooking(
+    const success = await delegateBooking(
       selectedBooking.id,
       selectedDelegatee.id,
       selectedDelegatee.name
     );
-    setIsDelegateOpen(false);
+    if (success) {
+      setIsDelegateOpen(false);
+      setSelectedBooking(null);
+    }
   };
+
+  const returnsPendingCount = bookings.filter((b) => b.status === "returned").length;
 
   return (
     <AppShell>
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8 text-ink">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8 text-ink pb-24">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-line pb-6">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Badge status="active" showDot={false}>
-                Custodian Management Desk
+                {roleTitle || "Lab Director"} Inbox
               </Badge>
               <span className="text-mono-label text-ink-muted">
-                Role: {roleTitle}
+                {bookings.filter((b) => b.status === "requested").length} Requests Awaiting Action
               </span>
             </div>
             <h1 className="font-display text-display-lg text-ink font-normal leading-tight">
-              Resource Request Queue
+              Resource Operations Queue
             </h1>
-            <p className="text-small text-ink-muted leading-relaxed max-w-xl">
-              Inspect student booking requests, evaluate competing applications, and issue explainable decisions that write permanently to the audit ledger.
+            <p className="text-small text-ink-muted leading-relaxed max-w-2xl">
+              Inspect student eligibility credentials, compare contested slots, dispatch transparent explainable decisions, and inspect physical return condition reports.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-small text-ink-muted">Pending Review:</span>
-            <Badge status="pending">
-              {bookings.filter((b) => b.status === "requested").length} Awaiting Action
-            </Badge>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono text-ink-muted bg-bone px-3 py-1.5 rounded-md border border-line">
+              Postgres RPC Guard: Active
+            </span>
           </div>
         </div>
 
         {/* Filter & Search Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface p-4 border border-line rounded-editorial shadow-xs">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted pointer-events-none" />
+            <Search className="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search student, tool, or purpose..."
@@ -197,23 +265,36 @@ export default function OwnerQueuePage() {
           {/* Status Tabs */}
           <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto p-1 bg-bone border border-line rounded-editorial text-xs">
             {[
-              { id: "pending", label: "Pending" },
-              { id: "approved", label: "Approved" },
-              { id: "waitlisted", label: "Waitlisted" },
-              { id: "all", label: "All Requests" },
+              { id: "pending", label: "Pending", count: bookings.filter((b) => b.status === "requested").length },
+              { id: "returns", label: "Returns Inspection", count: returnsPendingCount },
+              { id: "approved", label: "Approved", count: bookings.filter((b) => b.status === "approved").length },
+              { id: "waitlisted", label: "Waitlisted", count: bookings.filter((b) => b.status === "waitlisted").length },
+              { id: "all", label: "All Records", count: bookings.length },
             ].map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveFilter(tab.id as QueueFilter)}
                 className={cn(
-                  "px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer whitespace-nowrap",
+                  "px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 min-h-[36px]",
                   activeFilter === tab.id
                     ? "bg-surface text-ink font-semibold shadow-xs"
                     : "text-ink-muted hover:text-ink"
                 )}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                {tab.count !== undefined && (
+                  <span
+                    className={cn(
+                      "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
+                      activeFilter === tab.id
+                        ? "bg-terracotta/15 text-terracotta font-bold"
+                        : "bg-bone text-ink-muted"
+                    )}
+                  >
+                    {tab.count}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -227,8 +308,8 @@ export default function OwnerQueuePage() {
           <div className="lg:col-span-5 space-y-3">
             {filteredBookings.length === 0 ? (
               <EmptyState
-                title="No requests in this queue"
-                description="There are currently no student booking applications matching your filter criteria."
+                title="No items in this queue"
+                description="There are currently no reservations matching your filter criteria."
               />
             ) : (
               filteredBookings.map((b) => {
@@ -239,7 +320,7 @@ export default function OwnerQueuePage() {
                     type="button"
                     onClick={() => setSelectedBooking(b)}
                     className={cn(
-                      "w-full text-left p-4 rounded-editorial border transition-all cursor-pointer space-y-3",
+                      "w-full text-left p-4 rounded-editorial border transition-all cursor-pointer space-y-3 min-h-[44px]",
                       isSelected
                         ? "bg-surface border-terracotta ring-2 ring-terracotta/20 shadow-xs"
                         : "bg-surface hover:bg-bone border-line shadow-xs"
@@ -260,25 +341,32 @@ export default function OwnerQueuePage() {
                       <Badge status={b.status} />
                     </div>
 
-                    <div className="space-y-0.5">
-                      <h4 className="font-display text-base text-ink font-normal leading-snug">
+                    <div>
+                      <h4 className="font-display text-lg text-ink font-normal leading-snug">
                         {b.resourceTitle}
                       </h4>
-                      <p className="text-xs text-ink-muted font-mono flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-terracotta" />
+                      <p className="text-xs text-ink-muted flex items-center gap-1.5 pt-0.5">
+                        <Clock className="w-3.5 h-3.5 text-terracotta shrink-0" />
                         <span>
                           {new Date(b.timeRangeStart).toLocaleDateString([], {
                             weekday: "short",
                             month: "short",
                             day: "numeric",
-                          })} · {b.durationHours}h Session
+                          })} · {new Date(b.timeRangeStart).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ({b.durationHours}h)
                         </span>
                       </p>
                     </div>
 
-                    <p className="text-xs text-ink-muted line-clamp-2 italic">
+                    <p className="text-xs text-ink-muted line-clamp-2 italic bg-bone/50 p-2 rounded-md border border-line/60">
                       &ldquo;{b.purpose}&rdquo;
                     </p>
+
+                    {b.status === "returned" && (
+                      <div className="text-[11px] font-mono font-bold text-success flex items-center gap-1">
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Physical return ready for inspection</span>
+                      </div>
+                    )}
 
                     {b.delegatedTo && (
                       <div className="text-[10px] text-terracotta font-medium flex items-center gap-1">
@@ -302,7 +390,7 @@ export default function OwnerQueuePage() {
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4">
                   <div className="space-y-0.5">
                     <span className="text-mono-label text-ink-muted uppercase">
-                      Request Inspection #{selectedBooking.id}
+                      Reservation Inspection #{selectedBooking.id}
                     </span>
                     <h3 className="font-display text-2xl text-ink font-normal">
                       {selectedBooking.resourceTitle}
@@ -310,6 +398,123 @@ export default function OwnerQueuePage() {
                   </div>
                   <Badge status={selectedBooking.status} />
                 </div>
+
+                {/* Live timer if checked in or overdue */}
+                {(selectedBooking.status === "checked_in" || selectedBooking.status === "overdue") && (
+                  <BookingTimer booking={selectedBooking} />
+                )}
+
+                {/* ======================================================== */}
+                {/* SPECIAL INSPECTION VIEW FOR RETURNED BOOKINGS            */}
+                {/* ======================================================== */}
+                {selectedBooking.status === "returned" && (
+                  <div className="space-y-4">
+                    <div className="p-3.5 bg-[#F0F5F1] border border-[#C6DBCB] rounded-editorial flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-[#2F5338]">
+                        <RotateCcw className="w-4 h-4 text-success" />
+                        <span>Returned by Borrower · Awaiting Custodian Signoff</span>
+                      </div>
+                      <span className="text-[11px] font-mono text-[#2F5338]">
+                        {new Date(selectedBooking.returnedAt || selectedBooking.timeRangeEnd).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+
+                    {/* Side-by-Side Condition Inspection */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      {/* Before */}
+                      <div className="p-3.5 bg-bone/70 border border-line rounded-editorial space-y-2">
+                        <div className="flex justify-between items-center border-b border-line/60 pb-1.5">
+                          <strong className="text-ink uppercase font-mono text-[11px]">Arrival (Before)</strong>
+                          <Badge status="approved">
+                            {selectedBooking.conditionReports?.before?.overall.toUpperCase() || "EXCELLENT"}
+                          </Badge>
+                        </div>
+                        <p className="italic text-ink-muted">
+                          &ldquo;{selectedBooking.conditionReports?.before?.notes || "No defect reported"}&rdquo;
+                        </p>
+                        {selectedBooking.conditionReports?.before?.photos && selectedBooking.conditionReports.before.photos.length > 0 && (
+                          <div className="grid grid-cols-2 gap-1.5 pt-1">
+                            {selectedBooking.conditionReports.before.photos.map((p, i) => (
+                              <div key={i} className="rounded border border-line overflow-hidden">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={p} alt={`Before ${i}`} className="w-full h-20 object-cover" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* After */}
+                      <div className="p-3.5 bg-bone/70 border border-line rounded-editorial space-y-2">
+                        <div className="flex justify-between items-center border-b border-line/60 pb-1.5">
+                          <strong className="text-ink uppercase font-mono text-[11px]">Departure (After)</strong>
+                          <Badge
+                            status={
+                              selectedBooking.conditionReports?.after?.overall === "damaged"
+                                ? "rejected"
+                                : "approved"
+                            }
+                          >
+                            {selectedBooking.conditionReports?.after?.overall.toUpperCase() || "GOOD"}
+                          </Badge>
+                        </div>
+                        <p className="italic text-ink-muted">
+                          &ldquo;{selectedBooking.conditionReports?.after?.notes || "Cleaned and shut down"}&rdquo;
+                        </p>
+                        {selectedBooking.conditionReports?.after?.photos && selectedBooking.conditionReports.after.photos.length > 0 && (
+                          <div className="grid grid-cols-2 gap-1.5 pt-1">
+                            {selectedBooking.conditionReports.after.photos.map((p, i) => (
+                              <div key={i} className="rounded border border-line overflow-hidden">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={p} alt={`After ${i}`} className="w-full h-20 object-cover" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Incidents if logged */}
+                    {selectedBooking.incidents && selectedBooking.incidents.length > 0 && (
+                      <div className="p-3 bg-[#FCF2F1] border border-danger/40 rounded-editorial text-xs text-danger space-y-1">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <FileWarning className="w-4 h-4 text-danger" />
+                          <span>Student Disclosed Incident / Maintenance Need</span>
+                        </div>
+                        {selectedBooking.incidents.map((inc, i) => (
+                          <p key={i} className="text-ink-muted text-xs pl-5">
+                            {inc.type.toUpperCase()}: {inc.description}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Custodian Verification Actions */}
+                    <div className="p-4 bg-surface border border-line rounded-editorial space-y-3">
+                      <span className="text-mono-label uppercase text-ink-muted font-bold block">
+                        Custodian Verification Actions
+                      </span>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          variant="accent"
+                          leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                          onClick={() => setIsCompleteOpen(true)}
+                          className="min-h-[44px]"
+                        >
+                          Confirm & Complete Return
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="text-danger hover:bg-danger/10 min-h-[44px]"
+                          leftIcon={<AlertTriangle className="w-4 h-4" />}
+                          onClick={() => setIsDisputeOpen(true)}
+                        >
+                          Raise Dispute / Log Damage
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* 1. Requester Profile & Credentials */}
                 <div className="p-4 bg-bone/70 border border-line rounded-editorial space-y-3">
@@ -366,8 +571,8 @@ export default function OwnerQueuePage() {
                   </div>
                 </div>
 
-                {/* 3. Competing Requests for the Same Slot */}
-                {competingBookings.length > 0 && (
+                {/* 3. Competing Requests for the Same Slot (if requested) */}
+                {selectedBooking.status === "requested" && competingBookings.length > 0 && (
                   <div className="border border-line rounded-editorial p-4 bg-bone/50 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-xs font-semibold text-ink">
@@ -402,76 +607,75 @@ export default function OwnerQueuePage() {
                 )}
 
                 {/* 4. AI-Free Recommended Action Based on Rules */}
-                <div className="p-3.5 bg-sage-light border border-sage/40 rounded-editorial flex items-start gap-3 text-xs">
-                  <Sparkles className="w-4 h-4 text-sage-dark shrink-0 mt-0.5" />
-                  <div className="space-y-0.5">
-                    <strong className="text-ink block font-semibold">
-                      Rule Recommendation: APPROVE
-                    </strong>
-                    <span className="text-ink-muted leading-relaxed">
-                      Borrower holds verified safety certification, has remaining fair-use hours (3.5h used), 0 past violations, and holds highest priority standing for this window.
-                    </span>
+                {selectedBooking.status === "requested" && (
+                  <div className="p-3.5 bg-sage-light border border-sage/40 rounded-editorial flex items-start gap-3 text-xs">
+                    <Sparkles className="w-4 h-4 text-sage-dark shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <strong className="text-ink block font-semibold">
+                        Rule Recommendation: APPROVE
+                      </strong>
+                      <span className="text-ink-muted leading-relaxed">
+                        Borrower holds verified safety certification, has remaining fair-use hours (3.5h used), 0 past violations, and holds highest priority standing for this window.
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Verbatim Record Notice */}
-                <div className="p-2.5 bg-bone/70 border border-line/60 rounded-md text-[11px] text-ink-muted flex items-center gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 text-terracotta shrink-0" />
-                  <span>
-                    Notice: Your written explanation will be presented verbatim to the student borrower.
-                  </span>
-                </div>
+                {/* Standard Decision Actions for Pending Requests */}
+                {selectedBooking.status === "requested" && (
+                  <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-line/60">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                        onClick={() => handleOpenDecision("approved")}
+                        className="min-h-[44px]"
+                      >
+                        Approve Request
+                      </Button>
 
-                {/* Decision Actions */}
-                <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-line/60">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="accent"
-                      size="sm"
-                      leftIcon={<CheckCircle2 className="w-4 h-4" />}
-                      onClick={() => handleOpenDecision("approved")}
-                    >
-                      Approve Request
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<Scale className="w-4 h-4 text-warning" />}
+                        onClick={() => handleOpenDecision("waitlisted")}
+                        className="min-h-[44px]"
+                      >
+                        Waitlist
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-danger hover:bg-danger/10 hover:text-danger min-h-[44px]"
+                        leftIcon={<XCircle className="w-4 h-4" />}
+                        onClick={() => handleOpenDecision("rejected")}
+                      >
+                        Reject
+                      </Button>
+                    </div>
 
                     <Button
                       variant="outline"
                       size="sm"
-                      leftIcon={<Scale className="w-4 h-4 text-warning" />}
-                      onClick={() => handleOpenDecision("waitlisted")}
+                      leftIcon={<Share2 className="w-3.5 h-3.5 text-terracotta" />}
+                      onClick={() => setIsDelegateOpen(true)}
+                      className="min-h-[44px]"
                     >
-                      Waitlist
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-danger hover:bg-danger/10 hover:text-danger"
-                      leftIcon={<XCircle className="w-4 h-4" />}
-                      onClick={() => handleOpenDecision("rejected")}
-                    >
-                      Reject
+                      Delegate Review
                     </Button>
                   </div>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    leftIcon={<Share2 className="w-3.5 h-3.5 text-terracotta" />}
-                    onClick={() => setIsDelegateOpen(true)}
-                  >
-                    Delegate Review
-                  </Button>
-                </div>
+                )}
               </div>
             ) : (
               <div className="bg-surface border border-line rounded-editorial p-12 text-center text-ink-muted space-y-2">
                 <Inbox className="w-8 h-8 text-ink-muted/50 mx-auto" />
                 <h4 className="font-display text-lg text-ink font-normal">
-                  Select a request from the queue
+                  Select a reservation from the queue
                 </h4>
                 <p className="text-xs max-w-sm mx-auto">
-                  Click any booking card on the left to inspect applicant credentials, competing slots, and rule recommendations.
+                  Click any booking card on the left to inspect applicant credentials, competing slots, or verify condition returns.
                 </p>
               </div>
             )}
@@ -479,8 +683,108 @@ export default function OwnerQueuePage() {
         </div>
 
         {/* ======================================================== */}
-        {/* MANDATORY EXPLANATION DECISION MODAL                     */}
+        {/* RETURN COMPLETION & FEEDBACK MODAL                       */}
         {/* ======================================================== */}
+        <Dialog
+          isOpen={isCompleteOpen}
+          onClose={() => setIsCompleteOpen(false)}
+          title="Confirm Physical Return & Complete Journey"
+          description="Verifies condition inspection and writes completion hash to audit log."
+        >
+          <div className="space-y-4 pt-2 text-xs text-ink">
+            <div className="space-y-1.5">
+              <label className="font-semibold block">Inspection & Verification Notes</label>
+              <Textarea
+                rows={2}
+                value={verificationNotes}
+                onChange={(e) => setVerificationNotes(e.target.value)}
+                placeholder="E.g., Honeycomb bed cleaned, lens intact, exhaust fan reset..."
+              />
+            </div>
+
+            {/* Mutual Feedback */}
+            <div className="p-3 bg-bone/70 border border-line rounded-editorial space-y-2.5">
+              <label className="font-semibold text-terracotta block">
+                Collegiate Peer Standing & Feedback (Unlocked)
+              </label>
+              <div className="flex items-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setOwnerFeedbackRating(star)}
+                    className="p-1 min-h-[40px] min-w-[40px] flex items-center justify-center"
+                    aria-label={`Rate ${star} stars`}
+                  >
+                    <Star
+                      className={cn(
+                        "w-5 h-5 transition-colors",
+                        star <= ownerFeedbackRating
+                          ? "fill-warning text-warning"
+                          : "text-ink-muted/30"
+                      )}
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <Textarea
+                rows={2}
+                value={ownerFeedbackNote}
+                onChange={(e) => setOwnerFeedbackNote(e.target.value)}
+                placeholder="Brief feedback regarding user's tool care, punctuality, and cleanup..."
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-line/60">
+              <Button variant="outline" onClick={() => setIsCompleteOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="accent"
+                isLoading={isCompleting}
+                onClick={handleConfirmComplete}
+              >
+                Sign Off & Seal Ledger
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+
+        {/* Return Dispute Modal */}
+        <Dialog
+          isOpen={isDisputeOpen}
+          onClose={() => setIsDisputeOpen(false)}
+          title="Escalate Return Dispute"
+          description="Logs an administrative incident and flags the booking for departmental review."
+        >
+          <div className="space-y-4 pt-2 text-xs text-ink">
+            <div className="space-y-1.5">
+              <label className="font-semibold block">Dispute Basis & Damage Description</label>
+              <Textarea
+                rows={3}
+                value={disputeReason}
+                onChange={(e) => setDisputeReason(e.target.value)}
+                placeholder="Explain the damage or violation observed during physical inspection..."
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-line/60">
+              <Button variant="outline" onClick={() => setIsDisputeOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                isLoading={isDisputing}
+                onClick={handleConfirmDispute}
+              >
+                File Dispute
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+
+        {/* Mandatory Decision Modal */}
         <Dialog
           isOpen={isDecisionOpen}
           onClose={() => setIsDecisionOpen(false)}
@@ -573,4 +877,3 @@ export default function OwnerQueuePage() {
     </AppShell>
   );
 }
-

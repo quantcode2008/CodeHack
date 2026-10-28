@@ -19,15 +19,24 @@ import {
   Hash,
   Share2,
   Sparkles,
+  Star,
+  FileWarning,
+  MessageSquare,
+  AlertOctagon,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth } from "@/context/AuthContext";
 import { useBookings, type BookingRecord } from "@/context/BookingContext";
+import { useAudit } from "@/context/AuditContext";
+import { BookingTimer } from "@/components/booking/BookingTimer";
+import { AuditTimeline } from "@/components/audit/AuditTimeline";
+import { ReportIncidentDialog } from "@/components/incident/ReportIncidentDialog";
 import { Stepper, type StepItem } from "@/components/ui/Stepper";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Dialog } from "@/components/ui/Dialog";
+import { Textarea } from "@/components/ui/Textarea";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -35,18 +44,29 @@ import { cn } from "@/lib/utils";
 export default function BookingDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const bookingId = params?.bookingId as string;
+  const bookingId = (params?.bookingId || params?.id) as string;
   const { user } = useAuth();
-  const { getBookingById, cancelBooking, extendBooking } = useBookings();
+  const { getBookingById, cancelBooking, extendBooking, submitFeedback } = useBookings();
+  const { getAuditByBooking } = useAudit();
 
   const booking = getBookingById(bookingId);
+  const auditRecords = booking ? getAuditByBooking(booking.id) : [];
+
+  // Tab State: Details vs History
+  const [activeDetailTab, setActiveDetailTab] = React.useState<"details" | "history">("details");
 
   // Dialog States
   const [isCancelOpen, setIsCancelOpen] = React.useState(false);
   const [cancelReason, setCancelReason] = React.useState("");
   const [isExtendOpen, setIsExtendOpen] = React.useState(false);
   const [extendHours, setExtendHours] = React.useState(1);
-  const [isCheckinOpen, setIsCheckinOpen] = React.useState(false);
+  const [isReportIncidentOpen, setIsReportIncidentOpen] = React.useState(false);
+
+  // Feedback Dialog State
+  const [isFeedbackOpen, setIsFeedbackOpen] = React.useState(false);
+  const [feedbackRating, setFeedbackRating] = React.useState(5);
+  const [feedbackNote, setFeedbackNote] = React.useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = React.useState(false);
 
   if (!booking) {
     return (
@@ -124,9 +144,16 @@ export default function BookingDetailPage() {
     setIsExtendOpen(false);
   };
 
+  const handleSubmitPeerFeedback = async () => {
+    setIsSubmittingFeedback(true);
+    await submitFeedback(booking.id, feedbackRating, feedbackNote);
+    setIsSubmittingFeedback(false);
+    setIsFeedbackOpen(false);
+  };
+
   return (
     <AppShell>
-      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-8 space-y-8 text-ink">
+      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-8 space-y-8 text-ink pb-24">
         {/* Top Breadcrumb Header */}
         <div className="flex items-center justify-between border-b border-line pb-4">
           <Link
@@ -143,18 +170,81 @@ export default function BookingDetailPage() {
           </div>
         </div>
 
-        {/* Lifecycle Stepper */}
-        <Card className="p-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-line/60 pb-3">
-              <span className="text-mono-label uppercase text-ink-muted font-bold">
-                Booking Lifecycle Tracker
+        {/* Live Countdown Banner (When checked_in or overdue) */}
+        {(booking.status === "checked_in" || booking.status === "overdue") && (
+          <BookingTimer booking={booking} />
+        )}
+
+        {/* Tab Strip: Details & Handoff vs Audited History */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-1">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveDetailTab("details")}
+              className={cn(
+                "px-4 py-2 text-small font-medium border-b-2 -mb-1.5 transition-colors cursor-pointer",
+                activeDetailTab === "details"
+                  ? "border-terracotta text-terracotta font-semibold"
+                  : "border-transparent text-ink-muted hover:text-ink hover:border-line"
+              )}
+            >
+              Session Details & Handoff
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveDetailTab("history")}
+              className={cn(
+                "px-4 py-2 text-small font-medium border-b-2 -mb-1.5 transition-colors cursor-pointer flex items-center gap-2",
+                activeDetailTab === "history"
+                  ? "border-terracotta text-terracotta font-semibold"
+                  : "border-transparent text-ink-muted hover:text-ink hover:border-line"
+              )}
+            >
+              <span>Audited History & Ledger</span>
+              <span
+                className={cn(
+                  "px-1.5 py-0.2 rounded-full text-[10px] font-mono",
+                  activeDetailTab === "history"
+                    ? "bg-terracotta/15 text-terracotta font-bold"
+                    : "bg-bone text-ink-muted"
+                )}
+              >
+                {auditRecords.length}
               </span>
-              <Badge status={booking.status} />
-            </div>
-            <Stepper steps={steps} />
+            </button>
           </div>
-        </Card>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={<AlertOctagon className="w-3.5 h-3.5 text-danger" />}
+            onClick={() => setIsReportIncidentOpen(true)}
+            className="text-xs border border-danger/30 text-danger hover:bg-danger/10 min-h-[36px]"
+          >
+            Report Incident
+          </Button>
+        </div>
+
+        {activeDetailTab === "history" ? (
+          <AuditTimeline
+            records={auditRecords}
+            entityTitle={`${booking.resourceTitle} (Reservation ${booking.id})`}
+            allowExport
+          />
+        ) : (
+          <>
+            {/* Lifecycle Stepper */}
+            <Card className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-line/60 pb-3">
+                  <span className="text-mono-label uppercase text-ink-muted font-bold">
+                    Booking Lifecycle Tracker
+                  </span>
+                  <Badge status={booking.status} />
+                </div>
+                <Stepper steps={steps} />
+              </div>
+            </Card>
 
         {/* ======================================================== */}
         {/* VERBATIM DECISION EXPLANATION BOX (IF DECIDED)           */}
@@ -260,45 +350,217 @@ export default function BookingDetailPage() {
 
           {/* Action Triggers */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-line/60">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {booking.status === "approved" && (
-                <Button
-                  variant="accent"
-                  leftIcon={<Camera className="w-4 h-4" />}
-                  onClick={() =>
-                    toast.info("Physical Photo Check-in", {
-                      description: "Upload condition photos upon arriving at the lab bench to confirm custody.",
-                    })
-                  }
-                >
-                  Upload Arrival Photos
-                </Button>
+                <Link href={`/bookings/${booking.id}/check-in`}>
+                  <Button
+                    variant="accent"
+                    leftIcon={<Camera className="w-4 h-4" />}
+                    className="min-h-[44px]"
+                  >
+                    Check In at Resource (Photo)
+                  </Button>
+                </Link>
               )}
 
-              {booking.status !== "cancelled" && booking.status !== "returned" && (
+              {(booking.status === "checked_in" || booking.status === "overdue") && (
+                <Link href={`/bookings/${booking.id}/return`}>
+                  <Button
+                    variant="accent"
+                    leftIcon={<RotateCcw className="w-4 h-4" />}
+                    className="min-h-[44px]"
+                  >
+                    Return & Complete Checklist
+                  </Button>
+                </Link>
+              )}
+
+              {booking.status === "completed" && (
                 <Button
                   variant="outline"
                   size="sm"
-                  leftIcon={<PlusCircle className="w-4 h-4 text-terracotta" />}
-                  onClick={() => setIsExtendOpen(true)}
+                  leftIcon={<Star className="w-4 h-4 text-terracotta" />}
+                  onClick={() => setIsFeedbackOpen(true)}
+                  className="min-h-[44px]"
                 >
-                  Request Extension
+                  Collegiate Peer Feedback
                 </Button>
+              )}
+
+              {booking.status !== "cancelled" &&
+                booking.status !== "returned" &&
+                booking.status !== "completed" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<PlusCircle className="w-4 h-4 text-terracotta" />}
+                    onClick={() => setIsExtendOpen(true)}
+                    className="min-h-[44px]"
+                  >
+                    Request Extension
+                  </Button>
+                )}
+            </div>
+
+            {booking.status !== "cancelled" &&
+              booking.status !== "returned" &&
+              booking.status !== "completed" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-danger hover:bg-danger/10 hover:text-danger min-h-[44px]"
+                  onClick={() => setIsCancelOpen(true)}
+                >
+                  Cancel Reservation
+                </Button>
+              )}
+          </div>
+        </div>
+
+        {/* ======================================================== */}
+        {/* PHYSICAL CONDITION INSPECTION (BEFORE & AFTER)           */}
+        {/* ======================================================== */}
+        {(booking.conditionReports?.before || booking.conditionReports?.after) && (
+          <div className="bg-surface border border-line rounded-editorial p-6 space-y-5 shadow-xs">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div>
+                <span className="text-mono-label uppercase text-ink-muted font-bold">
+                  Physical Condition Audit
+                </span>
+                <h3 className="font-display text-xl text-ink">
+                  Condition Inspection Records
+                </h3>
+              </div>
+              <span className="text-xs text-ink-muted">
+                {booking.conditionReports?.after ? "Before & After Compared" : "Arrival Baseline"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Before Report */}
+              {booking.conditionReports?.before && (
+                <div className="p-4 bg-bone/60 border border-line rounded-editorial space-y-3 text-xs">
+                  <div className="flex items-center justify-between border-b border-line/60 pb-2">
+                    <span className="font-mono uppercase font-bold text-ink">
+                      Arrival Baseline (Before)
+                    </span>
+                    <Badge status="approved">
+                      {booking.conditionReports.before.overall.toUpperCase()}
+                    </Badge>
+                  </div>
+
+                  <p className="italic text-ink-muted bg-surface p-2.5 rounded-editorial border border-line/60">
+                    &ldquo;{booking.conditionReports.before.notes}&rdquo;
+                  </p>
+
+                  {booking.conditionReports.before.photos.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {booking.conditionReports.before.photos.map((photo, i) => (
+                        <div key={i} className="rounded-editorial border border-line overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={photo} alt={`Arrival ${i + 1}`} className="w-full h-24 object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-[10px] font-mono text-ink-muted pt-1">
+                    Recorded by {booking.conditionReports.before.recordedByName} at{" "}
+                    {new Date(booking.conditionReports.before.recordedAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* After Report */}
+              {booking.conditionReports?.after && (
+                <div className="p-4 bg-bone/60 border border-line rounded-editorial space-y-3 text-xs">
+                  <div className="flex items-center justify-between border-b border-line/60 pb-2">
+                    <span className="font-mono uppercase font-bold text-ink">
+                      Departure Inspection (After)
+                    </span>
+                    <Badge
+                      status={
+                        booking.conditionReports.after.overall === "damaged"
+                          ? "rejected"
+                          : "approved"
+                      }
+                    >
+                      {booking.conditionReports.after.overall.toUpperCase()}
+                    </Badge>
+                  </div>
+
+                  <p className="italic text-ink-muted bg-surface p-2.5 rounded-editorial border border-line/60">
+                    &ldquo;{booking.conditionReports.after.notes}&rdquo;
+                  </p>
+
+                  {booking.conditionReports.after.photos.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      {booking.conditionReports.after.photos.map((photo, i) => (
+                        <div key={i} className="rounded-editorial border border-line overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={photo} alt={`Departure ${i + 1}`} className="w-full h-24 object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-[10px] font-mono text-ink-muted pt-1">
+                    Recorded by {booking.conditionReports.after.recordedByName} at{" "}
+                    {new Date(booking.conditionReports.after.recordedAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                </div>
               )}
             </div>
 
-            {booking.status !== "cancelled" && booking.status !== "returned" && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-danger hover:bg-danger/10 hover:text-danger"
-                onClick={() => setIsCancelOpen(true)}
-              >
-                Cancel Reservation
-              </Button>
+            {/* Incident Callout if reported */}
+            {booking.incidents && booking.incidents.length > 0 && (
+              <div className="p-4 bg-[#FCF2F1] border border-danger/40 rounded-editorial space-y-2 text-xs text-danger">
+                <div className="flex items-center gap-2 font-bold">
+                  <FileWarning className="w-4 h-4 text-danger" />
+                  <span>Logged Incident / Damage Flag</span>
+                </div>
+                {booking.incidents.map((inc, idx) => (
+                  <div key={idx} className="p-2.5 bg-surface border border-danger/20 rounded-md space-y-1 text-ink">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <strong className="text-danger uppercase font-mono">{inc.type} ({inc.severity})</strong>
+                      <span className="font-mono text-ink-muted">{inc.status.toUpperCase()}</span>
+                    </div>
+                    <p className="text-xs text-ink-muted">{inc.description}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Peer Feedback Callout */}
+            {booking.feedback && booking.feedback.length > 0 && (
+              <div className="p-4 bg-bone/70 border border-line rounded-editorial space-y-2 text-xs">
+                <div className="flex items-center gap-2 font-bold text-ink">
+                  <MessageSquare className="w-4 h-4 text-terracotta" />
+                  <span>Collegiate Mutual Feedback</span>
+                </div>
+                {booking.feedback.map((fb, idx) => (
+                  <div key={idx} className="p-2.5 bg-surface border border-line rounded-editorial space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-ink">{fb.fromUserName} ({fb.fromRole})</span>
+                      <div className="flex items-center gap-0.5 text-warning">
+                        {Array.from({ length: fb.rating }).map((_, s) => (
+                          <Star key={s} className="w-3.5 h-3.5 fill-warning text-warning" />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="italic text-ink-muted">&ldquo;{fb.note}&rdquo;</p>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-        </div>
+        )}
 
         {/* ======================================================== */}
         {/* IMMUTABLE AUDIT TRAIL TIMELINE                           */}
@@ -339,6 +601,8 @@ export default function BookingDetailPage() {
             ))}
           </div>
         </div>
+      </>
+    )}
 
         {/* Cancellation Dialog */}
         <Dialog
@@ -348,25 +612,30 @@ export default function BookingDetailPage() {
           description="Please review cancellation policy rules."
         >
           <div className="space-y-4 pt-2 text-xs text-ink">
-            <p className="text-small text-ink-muted">
-              Cancelling releases this slot back to the public pool and notifies any waitlisted students immediately.
+            <p className="text-ink-muted leading-relaxed">
+              Cancellations submitted more than 2 hours before the session carry zero penalty.
+              The slot is automatically re-allocated to the top student on the fair-use waitlist.
             </p>
-            <div className="space-y-1">
-              <label className="font-semibold block">Cancellation Reason (Optional)</label>
-              <input
-                type="text"
-                placeholder="e.g. Schedule adjustment"
+
+            <div className="space-y-1.5">
+              <label className="text-mono-label uppercase text-ink-muted font-bold block">
+                Reason for Cancellation
+              </label>
+              <textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                className="w-full h-9 px-3 bg-surface border border-line rounded-editorial text-xs text-ink focus:outline-none focus:border-terracotta"
+                placeholder="E.g., CAD design revision required before cutting..."
+                rows={3}
+                className="w-full px-3 py-2 bg-bone/50 border border-line rounded-editorial text-xs text-ink focus:outline-none focus:ring-1 focus:ring-terracotta"
               />
             </div>
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-line/60">
-              <Button variant="outline" onClick={() => setIsCancelOpen(false)}>
-                Back
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+              <Button variant="ghost" size="sm" onClick={() => setIsCancelOpen(false)}>
+                Keep Reservation
               </Button>
-              <Button variant="danger" onClick={handleConfirmCancel}>
-                Confirm Cancel
+              <Button variant="accent" size="sm" onClick={handleConfirmCancel}>
+                Confirm Cancellation
               </Button>
             </div>
           </div>
@@ -377,39 +646,128 @@ export default function BookingDetailPage() {
           isOpen={isExtendOpen}
           onClose={() => setIsExtendOpen(false)}
           title="Request Session Extension"
-          description="Subject to consecutive slot availability."
+          description="Check consecutive slot availability."
         >
           <div className="space-y-4 pt-2 text-xs text-ink">
-            <div className="space-y-1.5">
-              <label className="font-semibold block">Additional Duration</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[1, 2].map((h) => (
-                  <button
-                    key={h}
-                    type="button"
-                    onClick={() => setExtendHours(h)}
-                    className={cn(
-                      "py-2 px-3 rounded-editorial border text-center transition-all cursor-pointer font-medium",
-                      extendHours === h
-                        ? "bg-ink text-surface border-ink"
-                        : "bg-surface hover:bg-bone border-line text-ink"
-                    )}
-                  >
-                    +{h} Hour{h > 1 ? "s" : ""}
-                  </button>
-                ))}
-              </div>
+            <p className="text-ink-muted leading-relaxed">
+              Session extensions are granted if the subsequent time block has not been claimed
+              by a competing reservation and does not exceed your 8.0h weekly fair-use balance.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setExtendHours(1)}
+                className={cn(
+                  "p-3 rounded-editorial border text-center transition-all min-h-[44px]",
+                  extendHours === 1
+                    ? "bg-terracotta text-white border-terracotta"
+                    : "bg-surface border-line text-ink hover:border-terracotta/50"
+                )}
+              >
+                <div className="font-bold text-xs">+1.0 Hour</div>
+                <div className="text-[10px] opacity-80">Single slot</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setExtendHours(2)}
+                className={cn(
+                  "p-3 rounded-editorial border text-center transition-all min-h-[44px]",
+                  extendHours === 2
+                    ? "bg-terracotta text-white border-terracotta"
+                    : "bg-surface border-line text-ink hover:border-terracotta/50"
+                )}
+              >
+                <div className="font-bold text-xs">+2.0 Hours</div>
+                <div className="text-[10px] opacity-80">Max allowance</div>
+              </button>
             </div>
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-line/60">
-              <Button variant="outline" onClick={() => setIsExtendOpen(false)}>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+              <Button variant="ghost" size="sm" onClick={() => setIsExtendOpen(false)}>
                 Cancel
               </Button>
-              <Button variant="accent" onClick={handleConfirmExtend}>
+              <Button variant="accent" size="sm" onClick={handleConfirmExtend}>
                 Confirm Extension
               </Button>
             </div>
           </div>
         </Dialog>
+
+        {/* Peer Feedback Dialog */}
+        <Dialog
+          isOpen={isFeedbackOpen}
+          onClose={() => setIsFeedbackOpen(false)}
+          title="Collegiate Peer Feedback"
+          description="Submit a short trust note to confirm smooth handoff."
+        >
+          <div className="space-y-4 pt-2 text-xs text-ink">
+            <div className="space-y-1.5">
+              <label className="text-mono-label uppercase text-ink-muted font-bold block">
+                Session Trust Rating
+              </label>
+              <div className="flex items-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setFeedbackRating(star)}
+                    className="p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    aria-label={`Rate ${star} stars`}
+                  >
+                    <Star
+                      className={cn(
+                        "w-6 h-6 transition-colors",
+                        star <= feedbackRating
+                          ? "fill-warning text-warning"
+                          : "text-ink-muted/30"
+                      )}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-mono-label uppercase text-ink-muted font-bold block">
+                Peer Review Note
+              </label>
+              <Textarea
+                value={feedbackNote}
+                onChange={(e) => setFeedbackNote(e.target.value)}
+                placeholder="E.g., Lab equipment was in pristine condition, optical lenses clean, prompt and clear communication..."
+                rows={3}
+                className="text-xs"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+              <Button variant="ghost" size="sm" onClick={() => setIsFeedbackOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="accent"
+                size="sm"
+                isLoading={isSubmittingFeedback}
+                onClick={handleSubmitPeerFeedback}
+              >
+                Submit Feedback
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+
+        {/* Global Incident Report Dialog for this Reservation */}
+        <ReportIncidentDialog
+          isOpen={isReportIncidentOpen}
+          onClose={() => setIsReportIncidentOpen(false)}
+          resourceId={booking.resourceId}
+          resourceTitle={booking.resourceTitle}
+          resourceSlug={booking.resourceSlug}
+          resourceLocation={booking.resourceLocation}
+          resourcePhoto={booking.resourcePhoto}
+          bookingId={booking.id}
+        />
       </div>
     </AppShell>
   );

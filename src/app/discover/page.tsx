@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth } from "@/context/AuthContext";
+import { useAudit } from "@/context/AuditContext";
 import { NaturalSearchBar } from "@/components/discover/NaturalSearchBar";
 import { FilterRail, type FilterState } from "@/components/discover/FilterRail";
 import { ResourceCard } from "@/components/discover/ResourceCard";
@@ -45,6 +46,7 @@ const INITIAL_FILTERS: FilterState = {
 
 export default function DiscoverPage() {
   const { user, credentials } = useAuth();
+  const { logAudit } = useAudit();
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -53,6 +55,8 @@ export default function DiscoverPage() {
   const [viewMode, setViewMode] = React.useState<"list" | "map">("list");
   const [mobileFilterOpen, setMobileFilterOpen] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [aiMatches, setAiMatches] = React.useState<Record<string, { whyThisFits: string; isAiSuggested: boolean }>>({});
+  const [isAiMatching, setIsAiMatching] = React.useState(false);
 
   // Compute active filter count
   const activeFilterCount = React.useMemo(() => {
@@ -104,7 +108,63 @@ export default function DiscoverPage() {
   const handleResetFilters = () => {
     setSearchQuery("");
     setFilters(INITIAL_FILTERS);
+    setAiMatches({});
   };
+
+  // Advisory /api/match invocation for natural language queries
+  React.useEffect(() => {
+    if (!searchQuery.trim() || searchQuery.trim().length < 4) {
+      setAiMatches({});
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsAiMatching(true);
+      try {
+        const res = await fetch("/api/match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: searchQuery }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const matchMap: Record<string, { whyThisFits: string; isAiSuggested: boolean }> = {};
+          (data.rankedResources || []).forEach((r: any) => {
+            matchMap[r.resourceId] = {
+              whyThisFits: r.whyThisFits,
+              isAiSuggested: true,
+            };
+          });
+          setAiMatches(matchMap);
+
+          // Log AI-assisted search event to immutable audit trail
+          logAudit({
+            entityType: "resource",
+            entityId: "discovery-ai-match",
+            entityTitle: `AI Search: "${searchQuery}"`,
+            action: "AI_RESOURCE_MATCH_GENERATED",
+            actionLabel: "AI Advisory Match Generated",
+            actorId: user?.id || "usr-anon",
+            actorName: user?.fullName || "Student Searcher",
+            actorRole: (user?.role as any) || "student",
+            reason: `Evaluated ${data.rankedResources?.length || 0} advisory candidates via ${data.modelUsed || "Gemini"}.`,
+            before: undefined,
+            after: {
+              query: searchQuery,
+              model: data.modelUsed,
+              resultsCount: data.rankedResources?.length || 0,
+            },
+          });
+        }
+      } catch {
+        // Silent fallback
+      } finally {
+        setIsAiMatching(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, user, logAudit]);
 
   return (
     <AppShell>
@@ -234,6 +294,22 @@ export default function DiscoverPage() {
               </div>
             )}
 
+            {/* AI Governance & Assistance Notice */}
+            <div className="p-3 bg-surface border border-line rounded-editorial flex items-center justify-between gap-3 text-xs shadow-xs">
+              <div className="flex items-center gap-2 text-ink-muted">
+                <Sparkles className="w-4 h-4 text-terracotta shrink-0" />
+                <span>
+                  <strong className="text-ink">Advisory Search Active: </strong>
+                  Natural-language translation enabled. AI never makes final booking, eligibility, or priority decisions; all allocations require human custodian approval.
+                </span>
+              </div>
+              {isAiMatching && (
+                <span className="font-mono text-[10px] text-terracotta animate-pulse font-bold shrink-0">
+                  Synthesizing...
+                </span>
+              )}
+            </div>
+
             {/* List / Grid View Display */}
             {viewMode === "list" && (
               <>
@@ -251,12 +327,16 @@ export default function DiscoverPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {filteredResources.map((res) => {
                       const elig = computeEligibility(res, userCredSnapshots);
+                      const aiMatch = aiMatches[res.id];
+
                       return (
                         <ResourceCard
                           key={res.id}
                           resource={res}
                           eligibility={elig}
                           isLoggedIn={Boolean(user)}
+                          isAiSuggested={Boolean(aiMatch?.isAiSuggested)}
+                          aiWhyThisFits={aiMatch?.whyThisFits}
                         />
                       );
                     })}

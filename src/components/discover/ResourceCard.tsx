@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Coins,
   Lock,
+  Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { type CampusResource } from "@/lib/resources/data";
@@ -22,12 +23,16 @@ interface ResourceCardProps {
   resource: CampusResource;
   eligibility?: EligibilityResult;
   isLoggedIn?: boolean;
+  isAiSuggested?: boolean;
+  aiWhyThisFits?: string;
 }
 
 export function ResourceCard({
   resource,
   eligibility,
   isLoggedIn = true,
+  isAiSuggested = false,
+  aiWhyThisFits,
 }: ResourceCardProps) {
   const isEligible = eligibility?.isEligible ?? false;
   const chipLabel = eligibility?.primaryChipLabel ?? "Sign in to check eligibility";
@@ -47,9 +52,17 @@ export function ResourceCard({
 
           {/* Top Badges Overlay */}
           <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2 pointer-events-none">
-            <span className="px-2.5 py-1 rounded-md bg-surface/90 backdrop-blur-md border border-line text-[11px] font-semibold text-ink shadow-xs">
-              {resource.categoryLabel}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="px-2.5 py-1 rounded-md bg-surface/90 backdrop-blur-md border border-line text-[11px] font-semibold text-ink shadow-xs">
+                {resource.categoryLabel}
+              </span>
+              {isAiSuggested && (
+                <span className="px-2 py-0.5 rounded-md bg-terracotta text-surface text-[10px] font-mono font-bold shadow-xs flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-surface" />
+                  AI-Suggested
+                </span>
+              )}
+            </div>
 
             {resource.requiresSupervision ? (
               <span className="px-2 py-0.5 rounded-md bg-[#FDF9EE]/95 border border-warning/40 text-[10px] font-semibold text-[#8C6114] shadow-xs flex items-center gap-1">
@@ -97,6 +110,17 @@ export function ResourceCard({
           <p className="text-xs text-ink-muted line-clamp-2 leading-relaxed">
             {resource.description}
           </p>
+
+          {/* AI One-Line Fit Explanation */}
+          {aiWhyThisFits && (
+            <div className="p-2.5 bg-bone/80 border border-line rounded-editorial text-[11px] text-ink space-y-0.5">
+              <div className="flex items-center gap-1 font-semibold text-terracotta text-[10px] uppercase font-mono">
+                <Sparkles className="w-3 h-3 text-terracotta" />
+                <span>Why this fits your request</span>
+              </div>
+              <p className="text-ink-muted leading-snug">{aiWhyThisFits}</p>
+            </div>
+          )}
 
           {/* Specs Micro-pill */}
           <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-ink-muted">
