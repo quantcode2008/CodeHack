@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bone: #F3EEE4;
+  --color-surface: #FBF8F2;
+  --color-ink: #1C1B18;
+  --color-muted-ink: #6B675E;
+  --color-line: #E2DBCB;
+  --color-terracotta: #B8522E;
+  --color-sage: #8A9A7B;
+  --color-success: #3F6B4A;
+  --color-warning: #B07A1E;
+  --color-danger: #A3362B;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    background-color: var(--color-bone);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: var(--color-bone);
+    color: var(--color-ink);
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* Focus rings WCAG AA compliant */
+  :focus-visible {
+    outline: 2px solid #B8522E;
+    outline-offset: 2px;
+  }
+
+  /* Selection styling matching editorial terracotta */
+  ::selection {
+    background-color: #B8522E;
+    color: #FBF8F2;
+  }
+}
+
+/* Marquee infinite ticker */
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 38s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-marquee {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
