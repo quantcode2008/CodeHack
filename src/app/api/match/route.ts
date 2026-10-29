@@ -1,8 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { CAMPUS_RESOURCES } from "@/lib/resources/data";
 import { matchResourcesWithAi } from "@/lib/ai/gemini";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 25 requests per minute per IP
+  const rateLimitResponse = checkRateLimit(request, { limit: 25, windowMs: 60_000 });
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json();
     const { query = "", purpose = "", resourceSlug = "" } = body;

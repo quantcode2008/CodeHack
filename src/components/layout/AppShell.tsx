@@ -26,6 +26,7 @@ import { useNotifications } from "@/context/NotificationContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { VerificationBanner } from "@/components/common/VerificationBanner";
+import { GuidedDemoWidget } from "@/components/common/GuidedDemoWidget";
 import { cn } from "@/lib/utils";
 
 export interface AppShellProps {
@@ -479,6 +480,9 @@ export function AppShell({ children }: AppShellProps) {
           })}
         </div>
       </nav>
+
+      {/* Floating Guided Demo Tour for Judges */}
+      <GuidedDemoWidget />
     </div>
   );
 }

@@ -1,9 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Lenis from "lenis";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { GrainOverlay } from "@/components/landing/GrainOverlay";
 import { CustomCursor } from "@/components/landing/CustomCursor";
 import { LandingNav } from "@/components/landing/LandingNav";
@@ -16,10 +13,6 @@ import { AuditTimelineSection } from "@/components/landing/AuditTimelineSection"
 import { AudienceSplitSection } from "@/components/landing/AudienceSplitSection";
 import { FinalCtaSection } from "@/components/landing/FinalCtaSection";
 
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
-}
-
 export default function LandingPage() {
   React.useEffect(() => {
     // Check if user prefers reduced motion
@@ -31,28 +24,47 @@ export default function LandingPage() {
       return;
     }
 
-    // Initialize Lenis smooth scroll
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      orientation: "vertical",
-      gestureOrientation: "vertical",
-      smoothWheel: true,
+    let isCancelled = false;
+    let cleanup: (() => void) | undefined;
+
+    // Dynamically import GSAP and Lenis on the landing page only
+    Promise.all([
+      import("lenis"),
+      import("gsap"),
+      import("gsap/ScrollTrigger"),
+    ]).then(([{ default: Lenis }, { gsap }, { ScrollTrigger }]) => {
+      if (isCancelled) return;
+
+      gsap.registerPlugin(ScrollTrigger);
+
+      // Initialize Lenis smooth scroll
+      const lenis = new Lenis({
+        duration: 1.2,
+        easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        orientation: "vertical",
+        gestureOrientation: "vertical",
+        smoothWheel: true,
+      });
+
+      // Wire Lenis to GSAP ScrollTrigger
+      lenis.on("scroll", ScrollTrigger.update);
+
+      const rafHandler = (time: number) => {
+        lenis.raf(time * 1000);
+      };
+
+      gsap.ticker.add(rafHandler);
+      gsap.ticker.lagSmoothing(0);
+
+      cleanup = () => {
+        gsap.ticker.remove(rafHandler);
+        lenis.destroy();
+      };
     });
 
-    // Wire Lenis to GSAP ScrollTrigger
-    lenis.on("scroll", ScrollTrigger.update);
-
-    const rafHandler = (time: number) => {
-      lenis.raf(time * 1000);
-    };
-
-    gsap.ticker.add(rafHandler);
-    gsap.ticker.lagSmoothing(0);
-
     return () => {
-      gsap.ticker.remove(rafHandler);
-      lenis.destroy();
+      isCancelled = true;
+      if (cleanup) cleanup();
     };
   }, []);
 

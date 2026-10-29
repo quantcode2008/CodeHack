@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { precheckCredentialWithAi } from "@/lib/ai/gemini";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 20 requests per minute per IP
+  const rateLimitResponse = checkRateLimit(request, { limit: 20, windowMs: 60_000 });
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json();
     const {

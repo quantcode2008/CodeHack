@@ -388,6 +388,33 @@ export default function CredentialsReviewPage() {
                   </p>
                 </div>
 
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  leftIcon={<ExternalLink className="w-3.5 h-3.5" />}
+                  onClick={async () => {
+                    try {
+                      const res = await fetch("/api/credentials/signed-url", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          path: selectedCredential.documentPath || "credentials/cert.pdf",
+                          bucket: "credentials",
+                        }),
+                      });
+                      const data = await res.json();
+                      if (data.signedUrl) {
+                        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+                      }
+                    } catch {
+                      toast.error("Could not generate cryptographic signed URL");
+                    }
+                  }}
+                >
+                  Open Secure Document (15m Signed URL)
+                </Button>
+
                 <div className="p-3 bg-bone/80 rounded-md border border-line/60 text-left text-xs text-ink/80 space-y-1">
                   <div className="font-semibold text-ink">Simulated Scan Verification:</div>
                   <p>• Optical radiation training completed on Oct 08, 2026.</p>
