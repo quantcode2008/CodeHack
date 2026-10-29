@@ -36,7 +36,7 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/explore";
@@ -98,70 +98,69 @@ export default function LoginPage() {
       role: "owner",
       name: "Dr. Kavitha Rao",
       label: "Owner",
-      desc: "Manage Fab Lab & approve booking requests",
+      desc: "Approve requests & inspect returned tools",
       icon: Microscope,
     },
     {
       role: "manager",
       name: "Imran Syed",
       label: "Manager",
-      desc: "Verify physical check-ins & review credentials",
+      desc: "Verify safety certs & oversee bay custody",
       icon: Wrench,
     },
     {
       role: "admin",
-      name: "Campus Admin",
+      name: "Campus Provost",
       label: "Admin",
-      desc: "Oversight, disputes & full audit trail",
+      desc: "Review disputes, audits & usage governance",
       icon: ShieldCheck,
     },
   ];
 
   return (
-    <div className="min-h-screen bg-bone text-ink flex flex-col justify-between p-4 sm:p-8">
+    <div className="min-h-screen bg-bone flex flex-col justify-between p-4 sm:p-8">
       {/* Top Header */}
-      <header className="max-w-5xl mx-auto w-full flex items-center justify-between pb-6">
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-9 h-9 rounded-editorial bg-ink text-surface flex items-center justify-center font-display text-h3 group-hover:bg-terracotta transition-colors">
+      <header className="max-w-5xl mx-auto w-full flex items-center justify-between pb-6 border-b border-line/60">
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <div className="w-9 h-9 rounded-editorial bg-ink text-surface flex items-center justify-center font-display text-xl group-hover:bg-terracotta transition-colors shadow-xs">
             C
           </div>
           <div>
-            <span className="font-display text-h3 text-ink tracking-tight block leading-none">
+            <span className="font-display text-2xl text-ink tracking-tight block leading-none">
               Commons
             </span>
-            <span className="text-mono-label text-ink-muted">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-ink-muted">
               Eastbrook Institute
             </span>
           </div>
         </Link>
 
-        <Link
-          href="/signup"
-          className="text-small font-medium text-ink-muted hover:text-ink transition-colors flex items-center gap-1.5"
-        >
-          <span>Need an account?</span>
-          <span className="text-terracotta underline font-semibold">Sign up</span>
-        </Link>
+        <div className="text-small text-ink-muted">
+          Need an account?{" "}
+          <Link
+            href="/signup"
+            className="text-terracotta hover:underline font-medium"
+          >
+            Register Student ID
+          </Link>
+        </div>
       </header>
 
-      {/* Main Form Centerpiece */}
-      <main className="max-w-md mx-auto w-full space-y-6 my-auto py-8">
-        {/* Title */}
+      {/* Main Login Card Canvas */}
+      <main className="max-w-md mx-auto w-full py-8 sm:py-12 space-y-6">
         <div className="text-center space-y-2">
-          <Badge status="active" showDot={false}>
-            Campus Access Portal
+          <Badge status="neutral" className="mb-1">
+            Institutional Single Sign-On
           </Badge>
-          <h1 className="font-display text-display-lg text-ink font-normal leading-tight">
-            Sign In to Commons
+          <h1 className="font-display text-display-md text-ink font-normal tracking-tight">
+            Sign in to Commons
           </h1>
-          <p className="text-small text-ink-muted leading-relaxed max-w-sm mx-auto">
-            Use your institutional credentials to access precision campus labs, fabrication suites, and testbenches.
+          <p className="text-body text-ink-muted text-sm">
+            Enter your university credentials or select your campus role for quick access.
           </p>
         </div>
 
-        {/* ======================================================== */}
-        {/* PROMINENT DEMO ACCOUNT CHIPS                             */}
-        {/* ======================================================== */}
+        {/* Quick Access by Campus Role */}
         <div className="bg-surface border border-line rounded-editorial p-5 shadow-editorial space-y-3">
           <div className="flex items-center justify-between border-b border-line/60 pb-2">
             <span className="text-mono-label uppercase text-ink-muted flex items-center gap-1.5 font-bold">
@@ -199,7 +198,7 @@ export default function LoginPage() {
                   <span className="text-xs text-ink/80 font-medium truncate">
                     {chip.name}
                   </span>
-                  <span className="text-[10px] text-ink-muted truncate">
+                  <span className="text-[10px] text-ink-muted line-clamp-1 mt-0.5">
                     {chip.desc}
                   </span>
                 </button>
@@ -208,21 +207,18 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="relative flex items-center justify-center">
-          <div className="border-t border-line w-full" />
-          <span className="bg-bone px-3 text-mono-label uppercase text-ink-muted text-[11px] shrink-0">
-            or continue with password
-          </span>
-        </div>
-
-        {/* Email + Password Form */}
+        {/* Traditional Credentials Form */}
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="bg-surface border border-line rounded-editorial p-6 shadow-editorial space-y-4"
+          className="bg-surface border border-line rounded-editorial p-6 sm:p-8 shadow-editorial space-y-4"
         >
+          <div className="flex items-center gap-2 pb-1 text-xs text-ink-muted border-b border-line/60">
+            <Building2 className="w-3.5 h-3.5 text-ink-muted" />
+            <span>Or sign in with @eastbrook.edu email</span>
+          </div>
+
           {errors.root && (
-            <div className="p-3 rounded-md bg-[#FCF2F1] border border-danger/40 text-danger text-small">
+            <div className="p-3 bg-danger-light border border-danger/30 rounded-editorial text-xs text-danger font-medium">
               {errors.root.message}
             </div>
           )}
@@ -230,7 +226,7 @@ export default function LoginPage() {
           <Input
             label="Institutional Email"
             type="email"
-            placeholder="e.g. aanya@eastbrook.edu"
+            placeholder="aanya@eastbrook.edu"
             leftIcon={<Mail className="w-4 h-4" />}
             error={errors.email?.message}
             {...register("email")}
@@ -265,11 +261,11 @@ export default function LoginPage() {
       <footer className="max-w-5xl mx-auto w-full pt-6 border-t border-line/60 flex flex-col sm:flex-row items-center justify-between text-xs text-ink-muted gap-2">
         <p>© 2026 Eastbrook Institute of Technology · Commons Platform</p>
         <div className="flex items-center gap-4">
-          <Link href="/design" className="hover:text-ink transition-colors">
-            Design Lab
+          <Link href="/explore" className="hover:text-ink transition-colors">
+            Catalog
           </Link>
-          <Link href="/emulator" className="hover:text-ink transition-colors">
-            Phone Emulator
+          <Link href="/" className="hover:text-ink transition-colors">
+            Home
           </Link>
         </div>
       </footer>
@@ -277,3 +273,20 @@ export default function LoginPage() {
   );
 }
 
+export default function LoginPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="min-h-screen bg-bone flex items-center justify-center p-4">
+          <div className="w-full max-w-md p-8 bg-surface border border-line rounded-editorial shadow-editorial text-center space-y-4 animate-pulse">
+            <div className="w-10 h-10 rounded-editorial bg-ink/10 mx-auto" />
+            <div className="h-6 bg-ink/10 rounded w-1/2 mx-auto" />
+            <div className="h-4 bg-ink/10 rounded w-3/4 mx-auto" />
+          </div>
+        </div>
+      }
+    >
+      <LoginFormContent />
+    </React.Suspense>
+  );
+}
