@@ -1,0 +1,10 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/explore/page": "app/explore/page.js",
+  "/queue/page": "app/queue/page.js",
+  "/alerts/page": "app/alerts/page.js",
+  "/owner/queue/page": "app/owner/queue/page.js",
+  "/admin/audit/page": "app/admin/audit/page.js",
+  "/admin/credentials/page": "app/admin/credentials/page.js"
+}
