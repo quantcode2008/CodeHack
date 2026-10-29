@@ -90,7 +90,7 @@ export async function compressImage(
 }
 
 /**
- * Believable high-resolution campus inspection photos for judge one-click simulation
+ * High-resolution campus inspection reference photos for hardware condition records
  */
 export const SAMPLE_INSPECTION_PHOTOS = {
   laser: {

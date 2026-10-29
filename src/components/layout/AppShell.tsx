@@ -11,12 +11,10 @@ import {
   Inbox,
   Layers,
   Scroll,
-  Palette,
   ShieldCheck,
   ChevronDown,
   Building2,
   Sparkles,
-  Smartphone,
   AlertOctagon,
   ArrowRight,
   LayoutDashboard,
@@ -246,7 +244,7 @@ export function AppShell({ children }: AppShellProps) {
             {roleMenuOpen && (
               <div className="absolute top-full left-0 right-0 mt-2 z-30 bg-surface border border-line rounded-editorial shadow-editorial-raised p-2 space-y-1">
                 <div className="px-2 py-1 text-mono-label text-ink-muted uppercase border-b border-line/60 mb-1">
-                  Switch Persona (Demo)
+                  Switch Campus Role
                 </div>
                 {roleOptions.map((opt) => (
                   <button
@@ -340,30 +338,6 @@ export function AppShell({ children }: AppShellProps) {
               <AlertOctagon className="w-4 h-4 text-danger" />
               <span>Incidents & Delays</span>
             </Link>
-            <Link
-              href="/design"
-              className={cn(
-                "flex items-center gap-3 px-3.5 py-2 rounded-editorial text-small font-medium transition-colors min-h-[44px]",
-                pathname === "/design"
-                  ? "bg-terracotta/10 text-terracotta font-semibold"
-                  : "text-ink-muted hover:text-terracotta hover:bg-bone/50"
-              )}
-            >
-              <Palette className="w-4 h-4 text-terracotta" />
-              <span>Design System Lab</span>
-            </Link>
-            <Link
-              href="/emulator"
-              className={cn(
-                "flex items-center gap-3 px-3.5 py-2 rounded-editorial text-small font-medium transition-colors min-h-[44px]",
-                pathname === "/emulator"
-                  ? "bg-ink text-surface font-semibold"
-                  : "text-ink-muted hover:text-ink hover:bg-bone/50"
-              )}
-            >
-              <Smartphone className="w-4 h-4 text-ink-muted" />
-              <span>Phone Emulator</span>
-            </Link>
           </div>
         </div>
 
@@ -421,15 +395,6 @@ export function AppShell({ children }: AppShellProps) {
             <span className="w-2 h-2 rounded-full bg-terracotta" />
             <span className="capitalize">{role}</span>
           </button>
-
-          <Link
-            href="/emulator"
-            aria-label="Phone Emulator"
-            className="p-2 text-ink-muted hover:text-ink min-h-[44px] min-w-[44px] flex items-center justify-center"
-            title="Open Phone Emulator"
-          >
-            <Smartphone className="w-5 h-5 text-terracotta" />
-          </Link>
         </div>
       </header>
 

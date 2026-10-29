@@ -133,3 +133,4 @@ CREATE POLICY "resource_photos_owner_insert"
       WHERE p.id = auth.uid() AND p.role IN ('owner', 'manager', 'admin')
     )
   );
+

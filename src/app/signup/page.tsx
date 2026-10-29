@@ -145,7 +145,7 @@ export default function SignupPage() {
           <div className="flex items-center justify-between">
             <span className="text-mono-label uppercase text-ink-muted flex items-center gap-1.5 font-bold">
               <Sparkles className="w-3.5 h-3.5 text-terracotta" />
-              Skip to instant demo
+              Fast Track with Campus Role
             </span>
           </div>
           <div className="grid grid-cols-4 gap-2">

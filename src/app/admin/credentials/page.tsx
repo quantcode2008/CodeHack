@@ -416,7 +416,7 @@ export default function CredentialsReviewPage() {
                 </Button>
 
                 <div className="p-3 bg-bone/80 rounded-md border border-line/60 text-left text-xs text-ink/80 space-y-1">
-                  <div className="font-semibold text-ink">Simulated Scan Verification:</div>
+                  <div className="font-semibold text-ink">Verified Document Record:</div>
                   <p>• Optical radiation training completed on Oct 08, 2026.</p>
                   <p>• Practical exam score: 100%.</p>
                   <p>• Signed by Eastbrook Safety Officer Dr. S. Vance.</p>

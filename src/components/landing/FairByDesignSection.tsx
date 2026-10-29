@@ -183,7 +183,7 @@ export function FairByDesignSection() {
             </div>
 
             <p className="text-[11px] text-ink-muted italic">
-              Click bonus lines above to simulate live priority recalibration.
+              Click priority criteria above to test live priority recalibration.
             </p>
           </div>
 

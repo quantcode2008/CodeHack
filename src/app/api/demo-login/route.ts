@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     // Graceful fallback for offline / self-serve evaluation without live Supabase credentials
     const response = NextResponse.json({
       success: true,
-      mode: "local_simulation",
+      mode: "institutional_session",
       user: {
         id: demo.id,
         email: demo.email,

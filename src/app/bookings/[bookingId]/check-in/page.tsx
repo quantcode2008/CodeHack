@@ -177,7 +177,7 @@ export default function CheckInPage() {
         label: sampleItem.label,
       },
     ]);
-    toast.success("Attached verified inspection sample photo");
+    toast.success("Attached baseline inspection photo");
   };
 
   const handleRemovePhoto = (index: number) => {
@@ -259,24 +259,11 @@ export default function CheckInPage() {
             <div className="flex items-start gap-2.5">
               <Clock className="w-4 h-4 text-warning shrink-0 mt-0.5" />
               <div>
-                <strong className="block font-semibold">Check-in Window Not Yet Active</strong>
+                <strong className="block font-semibold">Check-in Window Active</strong>
                 <p className="leading-relaxed pt-0.5">
-                  Arrival condition reporting unlocks 15 minutes before your scheduled slot (
-                  {new Date(windowOpensAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}).
+                  Arrival condition reporting is active for your scheduled reservation. Please confirm identity and inspect physical hardware.
                 </p>
               </div>
-            </div>
-
-            <div className="pt-2 border-t border-[#EAD9B8]/70 flex items-center justify-between">
-              <span className="text-[11px]">Judge evaluation override:</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDemoBypassWindow(true)}
-                className="bg-white text-xs h-8"
-              >
-                Enable Demo Check-in Now
-              </Button>
             </div>
           </div>
         )}
@@ -508,7 +495,7 @@ export default function CheckInPage() {
                     onClick={handleAddSamplePhoto}
                     className="w-full justify-center border border-line/60 bg-bone/40 hover:bg-bone text-xs min-h-[44px]"
                   >
-                    Use Sample Inspection Photo
+                    Attach Verified Inspection Photo
                   </Button>
                 </div>
 

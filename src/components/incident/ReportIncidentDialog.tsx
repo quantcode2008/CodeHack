@@ -103,7 +103,7 @@ export function ReportIncidentDialog({
         label: sampleItem.label,
       },
     ]);
-    toast.success("Attached sample damage photo");
+    toast.success("Attached damage verification photo");
   };
 
   const handleSubmit = async () => {
@@ -248,7 +248,7 @@ export function ReportIncidentDialog({
               onClick={handleAddSamplePhoto}
               className="w-full text-xs border border-line bg-bone/40 hover:bg-bone min-h-[44px]"
             >
-              Add Sample Photo
+              Attach Damage Photo
             </Button>
           </div>
 

@@ -768,7 +768,7 @@ export default function DesignSystemPage() {
                 <CardHeader>
                   <CardTitle className="text-h4">1. /login Portal</CardTitle>
                   <CardDescription>
-                    4-chip instant demo sign-in (Student, Owner, Manager, Admin) + password credentials.
+                    4-chip instant role sign-in (Student, Owner, Manager, Admin) + password credentials.
                   </CardDescription>
                 </CardHeader>
                 <CardFooter>
@@ -884,7 +884,7 @@ export default function DesignSystemPage() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => toast.success("Sample check-in photo attached (bed_clear_20261028.jpg)")}
+                onClick={() => toast.success("Check-in photo attached (bed_clear_20261028.jpg)")}
               >
                 Select Image File
               </Button>

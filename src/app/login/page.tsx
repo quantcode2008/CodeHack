@@ -166,7 +166,7 @@ export default function LoginPage() {
           <div className="flex items-center justify-between border-b border-line/60 pb-2">
             <span className="text-mono-label uppercase text-ink-muted flex items-center gap-1.5 font-bold">
               <Sparkles className="w-3.5 h-3.5 text-terracotta" />
-              Try a demo account (1-Click Instant)
+              Quick Access by Campus Role
             </span>
             <span className="text-[10px] text-ink-muted">No password needed</span>
           </div>

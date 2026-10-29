@@ -69,6 +69,14 @@ export function GuidedDemoWidget() {
     }
   }, []);
 
+  const checkInBookingId = React.useMemo(() => {
+    return bookings?.find((b) => b.status === "approved" || b.status === "requested")?.id || "bk-epilog-001";
+  }, [bookings]);
+
+  const returnBookingId = React.useMemo(() => {
+    return bookings?.find((b) => b.status === "checked_in")?.id || "bk-active-sony-002";
+  }, [bookings]);
+
   const steps: DemoStep[] = React.useMemo(
     () => [
       {
@@ -169,7 +177,7 @@ export function GuidedDemoWidget() {
         title: "Arrival Condition Check-in",
         role: "student",
         roleLabel: "Student",
-        href: "/bookings/bk-demo-01/check-in",
+        href: `/bookings/${checkInBookingId}/check-in`,
         icon: Camera,
         description:
           "Student logs arrival condition with timestamped photos and launches active timer.",
@@ -186,7 +194,7 @@ export function GuidedDemoWidget() {
         title: "Return & Damage Reporting",
         role: "student",
         roleLabel: "Student",
-        href: "/bookings/bk-demo-01/return",
+        href: `/bookings/${returnBookingId}/return`,
         icon: RotateCcw,
         description:
           "Student uploads after-photos for side-by-side comparison and submits incident report.",
@@ -213,7 +221,7 @@ export function GuidedDemoWidget() {
           (auditLogs && auditLogs.length > 0),
       },
     ],
-    []
+    [checkInBookingId, returnBookingId]
   );
 
   const contextState = React.useMemo(
@@ -242,7 +250,7 @@ export function GuidedDemoWidget() {
     // 1. Switch active role to match the step persona
     if (role !== step.role) {
       setRole(step.role);
-      toast.info(`Switched role to ${step.roleLabel} for this demonstration step.`);
+      toast.info(`Switched view to ${step.roleLabel}.`);
     }
 
     // 2. Navigate to deep-linked target page
@@ -253,7 +261,7 @@ export function GuidedDemoWidget() {
   const handleDismiss = () => {
     setIsDismissed(true);
     sessionStorage.setItem("commons_demo_widget_dismissed", "true");
-    toast.success("Guided demo widget minimized. Click tour pill to restore anytime.");
+    toast.success("Lifecycle walkthrough minimized. Click tour pill to restore anytime.");
   };
 
   if (isDismissed) {
@@ -266,10 +274,10 @@ export function GuidedDemoWidget() {
           setIsOpen(true);
         }}
         className="fixed bottom-4 left-4 z-40 bg-surface/90 backdrop-blur-md border border-line text-ink hover:text-terracotta text-xs font-mono py-1.5 px-3 rounded-full shadow-md flex items-center gap-2 hover:bg-bone transition-all"
-        title="Restore Guided Tour"
+        title="Restore Lifecycle Tour"
       >
         <Sparkles className="w-3.5 h-3.5 text-terracotta" />
-        <span>Judge Tour ({completedCount}/10)</span>
+        <span>Campus Tour ({completedCount}/10)</span>
       </button>
     );
   }
@@ -287,7 +295,7 @@ export function GuidedDemoWidget() {
             onClick={() => setIsOpen(!isOpen)}
             className="flex items-center gap-3 bg-ink text-surface hover:bg-ink/90 active:scale-98 transition-all px-4 py-2.5 rounded-full shadow-lg border border-surface/20"
             aria-expanded={isOpen}
-            aria-label="Open Guided Demo Tour"
+            aria-label="Open Lifecycle Tour"
           >
             <div className="w-6 h-6 rounded-full bg-terracotta flex items-center justify-center text-surface">
               <Sparkles className="w-3.5 h-3.5" />
@@ -295,7 +303,7 @@ export function GuidedDemoWidget() {
 
             <div className="text-left hidden sm:block">
               <div className="text-xs font-mono uppercase tracking-wider text-bone/80 flex items-center gap-1.5 leading-none">
-                <span>Guided Demo</span>
+                <span>Lifecycle Guide</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-terracotta animate-pulse" />
               </div>
               <div className="text-small font-semibold text-surface leading-tight mt-0.5">
@@ -331,7 +339,7 @@ export function GuidedDemoWidget() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="px-2 py-0.5 rounded-full bg-terracotta/10 text-terracotta text-[11px] font-mono font-semibold">
-                  JUDGE SELF-SERVE GUARANTEE
+                  END-TO-END VERIFICATION
                 </span>
                 <span className="text-xs font-mono text-ink-muted">
                   {completedCount} of 10 Complete
@@ -341,10 +349,10 @@ export function GuidedDemoWidget() {
                 id="guided-tour-title"
                 className="font-display text-h3 text-ink leading-tight"
               >
-                End-to-End Lifecycle Tour
+                Campus Lifecycle Walkthrough
               </h2>
               <p className="text-xs text-ink-muted mt-1">
-                One-click jump across roles from Listing &rarr; Approval &rarr; Photo Check-in &rarr; Damage Resolution.
+                Direct transition across roles from Listing &rarr; Approval &rarr; Photo Check-in &rarr; Damage Resolution.
               </p>
             </div>
 

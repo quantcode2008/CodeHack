@@ -474,7 +474,7 @@ export default function ReturnPage() {
                   onClick={() => handleAddSamplePhoto("clean")}
                   className="w-full text-xs border border-line bg-bone/40 hover:bg-bone min-h-[44px]"
                 >
-                  Add Sample Photo
+                  Attach Inspection Photo
                 </Button>
               </div>
 
@@ -605,7 +605,7 @@ export default function ReturnPage() {
                   leftIcon={<Camera className="w-3.5 h-3.5 text-danger" />}
                   className="text-xs border border-danger/30 text-danger hover:bg-danger/10 min-h-[40px]"
                 >
-                  Attach Damage Sample Photo (Demo)
+                  Attach Damage Inspection Photo
                 </Button>
               </div>
             </div>

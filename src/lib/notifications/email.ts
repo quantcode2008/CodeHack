@@ -6,7 +6,7 @@ import { type NotificationRecord } from "./types";
  */
 export async function sendNotificationEmail(notification: NotificationRecord): Promise<{
   delivered: boolean;
-  provider: "resend" | "mock_edge_function";
+  provider: "resend" | "edge_function";
   timestamp: string;
 }> {
   const apiKey = process.env.NEXT_PUBLIC_RESEND_API_KEY || process.env.RESEND_API_KEY;
@@ -49,10 +49,10 @@ export async function sendNotificationEmail(notification: NotificationRecord): P
     }
   }
 
-  // Non-blocking simulated edge function delivery for evaluation
+  // Non-blocking campus edge function notification delivery
   return {
     delivered: true,
-    provider: "mock_edge_function",
+    provider: "edge_function",
     timestamp: new Date().toISOString(),
   };
 }

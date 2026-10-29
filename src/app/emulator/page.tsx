@@ -102,7 +102,7 @@ export default function EmulatorPage() {
                 </Badge>
               </div>
               <p className="text-xs text-ink-muted">
-                Interactive collegiate phone simulator · Testing mobile responsiveness & touch ergonomics
+                Mobile Experience · View responsive layout and touch ergonomics
               </p>
             </div>
           </div>

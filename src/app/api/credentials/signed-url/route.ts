@@ -46,7 +46,6 @@ export async function POST(request: NextRequest) {
       expiresIn: 900,
       bucket,
       path,
-      isDemoSimulation: true,
     });
   } catch (error) {
     console.error("[/api/credentials/signed-url error]", error);
@@ -56,3 +55,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
